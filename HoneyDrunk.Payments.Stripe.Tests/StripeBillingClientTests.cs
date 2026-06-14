@@ -211,6 +211,78 @@ public sealed class StripeBillingClientTests
     }
 
     [Fact]
+    public async Task BillingClientGetsSubscriptionThroughProviderNeutralContract()
+    {
+        var createdAt = DateTime.UtcNow.AddDays(-7);
+        var sdk = new CapturingStripeBillingSdk
+        {
+            Subscription = new Subscription
+            {
+                Id = "sub_test",
+                CustomerId = "cus_test",
+                Status = "active",
+                Created = createdAt,
+                LatestInvoiceId = "in_test",
+                Metadata = new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    [StripeBillingClient.TenantMetadataKey] = "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    [StripeBillingClient.ProjectMetadataKey] = "project-1",
+                    [StripeBillingClient.TierMetadataKey] = "Starter",
+                },
+            },
+        };
+        IPaymentSubscriptionLifecycleClient client = new StripeBillingClient(sdk);
+
+        var snapshot = await client.GetSubscriptionAsync("sub_test", CancellationToken.None);
+
+        Assert.Equal("sub_test", sdk.LastSubscriptionId);
+        Assert.Equal(PaymentProviderNames.Stripe, snapshot.Provider);
+        Assert.Equal("sub_test", snapshot.ProviderSubscriptionId);
+        Assert.Equal("cus_test", snapshot.ProviderCustomerId);
+        Assert.Equal("active", snapshot.Status);
+        Assert.Equal("project-1", snapshot.ProjectId);
+        Assert.Equal(createdAt, snapshot.CreatedAt);
+        Assert.Equal("in_test", snapshot.LatestInvoiceId);
+    }
+
+    [Fact]
+    public async Task BillingClientCancelsSubscriptionThroughProviderNeutralContract()
+    {
+        var canceledAt = DateTime.UtcNow;
+        var sdk = new CapturingStripeBillingSdk
+        {
+            Subscription = new Subscription
+            {
+                Id = "sub_test",
+                CustomerId = "cus_test",
+                Status = "canceled",
+                CanceledAt = canceledAt,
+                Metadata = new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    [StripeBillingClient.TenantMetadataKey] = "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    [StripeBillingClient.ProjectMetadataKey] = "project-1",
+                    [StripeBillingClient.TierMetadataKey] = "Starter",
+                },
+            },
+        };
+        IPaymentSubscriptionLifecycleClient client = new StripeBillingClient(sdk);
+
+        var snapshot = await client.CancelSubscriptionAsync(
+            new PaymentSubscriptionCancellationRequest("sub_test", InvoiceNow: true, Prorate: false, Reason: "duplicate", IdempotencyKey: "cancel-1"),
+            CancellationToken.None);
+
+        Assert.Equal("sub_test", sdk.LastSubscriptionId);
+        Assert.Equal("cancel-1", sdk.LastIdempotencyKey);
+        Assert.NotNull(sdk.LastSubscriptionCancelOptions);
+        Assert.True(sdk.LastSubscriptionCancelOptions.InvoiceNow);
+        Assert.False(sdk.LastSubscriptionCancelOptions.Prorate);
+        Assert.Equal("duplicate", sdk.LastSubscriptionCancelOptions.CancellationDetails.Comment);
+        Assert.Equal(PaymentProviderNames.Stripe, snapshot.Provider);
+        Assert.Equal("sub_test", snapshot.ProviderSubscriptionId);
+        Assert.Equal(canceledAt, snapshot.CanceledAt);
+    }
+
+    [Fact]
     public void BillingClientNormalizesWebhookEventMetadata()
     {
         var sdk = new CapturingStripeBillingSdk();
@@ -331,6 +403,90 @@ public sealed class StripeBillingClientTests
         Assert.Equal("stripe", snapshot.Metadata["invoice_source"]);
     }
 
+    [Fact]
+    public async Task BillingClientReconcilesInvoiceThroughProviderNeutralContract()
+    {
+        var paidAt = DateTime.UtcNow;
+        var sdk = new CapturingStripeBillingSdk
+        {
+            Invoice = new Invoice
+            {
+                Id = "in_test",
+                CustomerId = "cus_test",
+                Status = "open",
+                Currency = "usd",
+                AmountDue = 2400,
+                AmountPaid = 1200,
+                AmountRemaining = 1200,
+                PeriodStart = new DateTime(2026, 06, 01, 0, 0, 0, DateTimeKind.Utc),
+                PeriodEnd = new DateTime(2026, 07, 01, 0, 0, 0, DateTimeKind.Utc),
+                HostedInvoiceUrl = "https://invoice.stripe.test/hosted",
+                InvoicePdf = "https://invoice.stripe.test/pdf",
+                StatusTransitions = new InvoiceStatusTransitions
+                {
+                    PaidAt = paidAt,
+                },
+                Metadata = new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    [StripeBillingClient.TenantMetadataKey] = "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    [StripeBillingClient.ProjectMetadataKey] = "project-1",
+                    [StripeBillingClient.TierMetadataKey] = "Starter",
+                },
+                Parent = new InvoiceParent
+                {
+                    SubscriptionDetails = new InvoiceParentSubscriptionDetails
+                    {
+                        SubscriptionId = "sub_test",
+                    },
+                },
+            },
+        };
+        IPaymentInvoiceReconciliationClient client = new StripeBillingClient(sdk);
+
+        var snapshot = await client.ReconcileInvoiceAsync("in_test", CancellationToken.None);
+
+        Assert.Equal("in_test", sdk.LastInvoiceId);
+        Assert.Equal(PaymentProviderNames.Stripe, snapshot.Provider);
+        Assert.Equal("in_test", snapshot.ProviderInvoiceId);
+        Assert.Equal("cus_test", snapshot.ProviderCustomerId);
+        Assert.Equal("sub_test", snapshot.ProviderSubscriptionId);
+        Assert.Equal("open", snapshot.Status);
+        Assert.Equal(1200, snapshot.AmountRemaining);
+        Assert.Equal("project-1", snapshot.ProjectId);
+        Assert.Equal("Starter", snapshot.TierName);
+    }
+
+    [Fact]
+    public async Task NoopMeteredBillingClientAcceptsValidMeterEvent()
+    {
+        var client = new NoopStripeMeteredBillingClient();
+        var meterEvent = new StripeMeterEvent(
+            "payments.submission.accepted.email",
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            1,
+            "corr-1",
+            new Dictionary<string, string>(StringComparer.Ordinal));
+
+        await client.RecordMeterEventAsync(meterEvent, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task NoopMeteredBillingClientObservesCancellation()
+    {
+        var client = new NoopStripeMeteredBillingClient();
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+        var meterEvent = new StripeMeterEvent(
+            "payments.submission.accepted.email",
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            1,
+            "corr-1",
+            new Dictionary<string, string>(StringComparer.Ordinal));
+
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            await client.RecordMeterEventAsync(meterEvent, cancellation.Token));
+    }
+
     private sealed class CapturingStripeMeteredBillingClient : IStripeMeteredBillingClient
     {
         public StripeMeterEvent? LastEvent { get; private set; }
@@ -349,6 +505,10 @@ public sealed class StripeBillingClientTests
         public StripeCheckout.SessionCreateOptions? LastCheckoutSessionOptions { get; private set; }
 
         public SubscriptionCancelOptions? LastSubscriptionCancelOptions { get; private set; }
+
+        public string? LastSubscriptionId { get; private set; }
+
+        public string? LastInvoiceId { get; private set; }
 
         public string? LastIdempotencyKey { get; private set; }
 
@@ -395,8 +555,11 @@ public sealed class StripeBillingClientTests
             return Task.FromResult(CheckoutSession);
         }
 
-        public Task<Subscription> GetSubscriptionAsync(string subscriptionId, CancellationToken cancellationToken) =>
-            Task.FromResult(Subscription);
+        public Task<Subscription> GetSubscriptionAsync(string subscriptionId, CancellationToken cancellationToken)
+        {
+            LastSubscriptionId = subscriptionId;
+            return Task.FromResult(Subscription);
+        }
 
         public Task<Subscription> CancelSubscriptionAsync(
             string subscriptionId,
@@ -404,6 +567,7 @@ public sealed class StripeBillingClientTests
             string? idempotencyKey,
             CancellationToken cancellationToken)
         {
+            LastSubscriptionId = subscriptionId;
             LastSubscriptionCancelOptions = options;
             LastIdempotencyKey = idempotencyKey;
             return Task.FromResult(Subscription);
@@ -417,7 +581,10 @@ public sealed class StripeBillingClientTests
             return EventUtility.ParseEvent(payload, throwOnApiVersionMismatch: false);
         }
 
-        public Task<Invoice> GetInvoiceAsync(string invoiceId, CancellationToken cancellationToken) =>
-            Task.FromResult(Invoice);
+        public Task<Invoice> GetInvoiceAsync(string invoiceId, CancellationToken cancellationToken)
+        {
+            LastInvoiceId = invoiceId;
+            return Task.FromResult(Invoice);
+        }
     }
 }

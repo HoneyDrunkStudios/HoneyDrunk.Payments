@@ -259,7 +259,7 @@ public sealed class StripeBillingClient :
             stripeEvent.Created,
             stripeEvent.Livemode,
             (dataObject as IHasId)?.Id,
-            (dataObject as IHasObject)?.Object,
+            dataObject?.Object,
             metadata);
     }
 
