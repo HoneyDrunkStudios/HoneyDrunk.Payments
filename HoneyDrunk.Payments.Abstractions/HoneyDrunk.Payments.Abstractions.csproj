@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>HoneyDrunk.Payments.Abstractions</PackageId>
+    <Description>Provider-neutral HoneyDrunk payment and billing contracts.</Description>
+    <PackageTags>honeydrunk;payments;billing;abstractions</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HoneyDrunk.Standards" Version="0.2.9" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

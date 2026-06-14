@@ -1,0 +1,435 @@
+using HoneyDrunk.Payments.Abstractions;
+using Stripe;
+using Stripe.Billing;
+using System.Globalization;
+using StripeCheckout = Stripe.Checkout;
+
+namespace HoneyDrunk.Payments.Stripe;
+
+/// <summary>
+/// Stripe.NET-backed billing client for Payments.
+/// </summary>
+public sealed class StripeBillingClient :
+    IStripeMeteredBillingClient,
+    IStripeSubscriptionLifecycleClient,
+    IStripeWebhookEventValidator,
+    IStripeInvoiceReconciliationClient,
+    IPaymentSubscriptionLifecycleClient,
+    IPaymentWebhookEventValidator,
+    IPaymentInvoiceReconciliationClient
+{
+    internal const string TenantMetadataKey = "payments_tenant_id";
+    internal const string ProjectMetadataKey = "project_id";
+    internal const string TierMetadataKey = "tier_name";
+    internal const string MeterCustomerPayloadKey = "customer_key";
+    internal const string MeterValuePayloadKey = "value";
+    internal const string MeterCorrelationPayloadKey = "correlation_id";
+
+    private const string ProviderName = PaymentProviderNames.Stripe;
+
+    private readonly IStripeBillingSdk sdk;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="StripeBillingClient"/> class.
+    /// </summary>
+    /// <param name="apiKey">Stripe API key.</param>
+    public StripeBillingClient(string apiKey)
+        : this(new StripeBillingSdk(apiKey))
+    {
+    }
+
+    internal StripeBillingClient(IStripeBillingSdk sdk)
+    {
+        this.sdk = sdk ?? throw new ArgumentNullException(nameof(sdk));
+    }
+
+    /// <inheritdoc />
+    async ValueTask<PaymentCheckoutSessionSnapshot> IPaymentSubscriptionLifecycleClient.CreateCheckoutSessionAsync(
+        PaymentCheckoutSessionRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var session = await CreateCheckoutSessionAsync(
+                new StripeCheckoutSessionRequest(
+                    request.TenantId,
+                    request.ProjectId,
+                    request.TierName,
+                    request.ProviderPriceId,
+                    request.SuccessUrl,
+                    request.CancelUrl,
+                    request.ProviderCustomerId,
+                    request.CustomerEmail,
+                    request.Quantity,
+                    request.IdempotencyKey,
+                    request.Metadata),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return ToPaymentCheckoutSessionSnapshot(session);
+    }
+
+    /// <inheritdoc />
+    async ValueTask<PaymentSubscriptionSnapshot> IPaymentSubscriptionLifecycleClient.GetSubscriptionAsync(
+        string providerSubscriptionId,
+        CancellationToken cancellationToken)
+    {
+        var subscription = await GetSubscriptionAsync(providerSubscriptionId, cancellationToken).ConfigureAwait(false);
+        return ToPaymentSubscriptionSnapshot(subscription);
+    }
+
+    /// <inheritdoc />
+    async ValueTask<PaymentSubscriptionSnapshot> IPaymentSubscriptionLifecycleClient.CancelSubscriptionAsync(
+        PaymentSubscriptionCancellationRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var subscription = await CancelSubscriptionAsync(
+                new StripeSubscriptionCancellationRequest(
+                    request.ProviderSubscriptionId,
+                    request.InvoiceNow,
+                    request.Prorate,
+                    request.Reason,
+                    request.IdempotencyKey),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return ToPaymentSubscriptionSnapshot(subscription);
+    }
+
+    /// <inheritdoc />
+    PaymentWebhookEventSnapshot IPaymentWebhookEventValidator.ValidateWebhookEvent(
+        string payload,
+        string signatureHeader,
+        string webhookSecret) =>
+        ToPaymentWebhookEventSnapshot(ValidateWebhookEvent(payload, signatureHeader, webhookSecret));
+
+    /// <inheritdoc />
+    async ValueTask<PaymentInvoiceReconciliationSnapshot> IPaymentInvoiceReconciliationClient.ReconcileInvoiceAsync(
+        string providerInvoiceId,
+        CancellationToken cancellationToken)
+    {
+        var invoice = await ReconcileInvoiceAsync(providerInvoiceId, cancellationToken).ConfigureAwait(false);
+        return ToPaymentInvoiceReconciliationSnapshot(invoice);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask RecordMeterEventAsync(StripeMeterEvent meterEvent, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(meterEvent);
+        ArgumentException.ThrowIfNullOrWhiteSpace(meterEvent.EventName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(meterEvent.CustomerKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(meterEvent.CorrelationId);
+
+        if (meterEvent.Units <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(meterEvent), meterEvent.Units, "Meter event units must be positive.");
+        }
+
+        var payload = CopyMetadata(meterEvent.Metadata);
+        payload[MeterCustomerPayloadKey] = meterEvent.CustomerKey;
+        payload[MeterValuePayloadKey] = meterEvent.Units.ToString(CultureInfo.InvariantCulture);
+        payload[MeterCorrelationPayloadKey] = meterEvent.CorrelationId;
+
+        var options = new MeterEventCreateOptions
+        {
+            EventName = meterEvent.EventName,
+            Identifier = meterEvent.CorrelationId,
+            Payload = payload,
+            Timestamp = DateTime.UtcNow,
+        };
+
+        await sdk
+            .CreateMeterEventAsync(options, meterEvent.CorrelationId, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<StripeCheckoutSessionSnapshot> CreateCheckoutSessionAsync(
+        StripeCheckoutSessionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ValidateCheckoutRequest(request);
+
+        var metadata = BuildPaymentsMetadata(
+            request.TenantId,
+            request.ProjectId,
+            request.TierName,
+            request.Metadata);
+
+        var options = new StripeCheckout.SessionCreateOptions
+        {
+            Mode = "subscription",
+            SuccessUrl = request.SuccessUrl,
+            CancelUrl = request.CancelUrl,
+            Customer = request.StripeCustomerId,
+            CustomerEmail = string.IsNullOrWhiteSpace(request.StripeCustomerId) ? request.CustomerEmail : null,
+            ClientReferenceId = $"{request.TenantId}:{request.ProjectId}",
+            Metadata = metadata,
+            LineItems =
+            [
+                new StripeCheckout.SessionLineItemOptions
+                {
+                    Price = request.StripePriceId,
+                    Quantity = request.Quantity,
+                },
+            ],
+            SubscriptionData = new StripeCheckout.SessionSubscriptionDataOptions
+            {
+                Metadata = metadata,
+            },
+        };
+
+        var session = await sdk
+            .CreateCheckoutSessionAsync(options, request.IdempotencyKey, cancellationToken)
+            .ConfigureAwait(false);
+
+        return new StripeCheckoutSessionSnapshot(
+            session.Id,
+            session.Url,
+            request.TenantId,
+            request.ProjectId,
+            request.TierName,
+            session.CustomerId,
+            session.SubscriptionId);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<StripeSubscriptionSnapshot> GetSubscriptionAsync(
+        string subscriptionId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(subscriptionId);
+
+        var subscription = await sdk
+            .GetSubscriptionAsync(subscriptionId, cancellationToken)
+            .ConfigureAwait(false);
+
+        return ToSubscriptionSnapshot(subscription);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<StripeSubscriptionSnapshot> CancelSubscriptionAsync(
+        StripeSubscriptionCancellationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.SubscriptionId);
+
+        var options = new SubscriptionCancelOptions
+        {
+            InvoiceNow = request.InvoiceNow,
+            Prorate = request.Prorate,
+            CancellationDetails = string.IsNullOrWhiteSpace(request.Reason)
+                ? null
+                : new SubscriptionCancellationDetailsOptions
+                {
+                    Comment = request.Reason,
+                },
+        };
+
+        var subscription = await sdk
+            .CancelSubscriptionAsync(request.SubscriptionId, options, request.IdempotencyKey, cancellationToken)
+            .ConfigureAwait(false);
+
+        return ToSubscriptionSnapshot(subscription);
+    }
+
+    /// <inheritdoc />
+    public StripeWebhookEventSnapshot ValidateWebhookEvent(
+        string payload,
+        string signatureHeader,
+        string webhookSecret)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(payload);
+        ArgumentException.ThrowIfNullOrWhiteSpace(signatureHeader);
+        ArgumentException.ThrowIfNullOrWhiteSpace(webhookSecret);
+
+        var stripeEvent = sdk.ConstructEvent(payload, signatureHeader, webhookSecret);
+        var dataObject = stripeEvent.Data?.Object;
+        var metadata = dataObject is IHasMetadata metadataObject
+            ? CopyMetadata(metadataObject.Metadata)
+            : new Dictionary<string, string>(StringComparer.Ordinal);
+
+        return new StripeWebhookEventSnapshot(
+            stripeEvent.Id,
+            stripeEvent.Type,
+            stripeEvent.Created,
+            stripeEvent.Livemode,
+            (dataObject as IHasId)?.Id,
+            (dataObject as IHasObject)?.Object,
+            metadata);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<StripeInvoiceReconciliationSnapshot> ReconcileInvoiceAsync(
+        string invoiceId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(invoiceId);
+
+        var invoice = await sdk
+            .GetInvoiceAsync(invoiceId, cancellationToken)
+            .ConfigureAwait(false);
+
+        var metadata = CopyMetadata(invoice.Metadata);
+        var subscriptionMetadata = CopyMetadata(invoice.Parent?.SubscriptionDetails?.Metadata);
+        var lookupMetadata = MergeMetadata(subscriptionMetadata, metadata);
+
+        return new StripeInvoiceReconciliationSnapshot(
+            invoice.Id,
+            invoice.CustomerId,
+            invoice.Parent?.SubscriptionDetails?.SubscriptionId,
+            invoice.Status,
+            invoice.Currency,
+            invoice.AmountDue,
+            invoice.AmountPaid,
+            invoice.AmountRemaining,
+            invoice.PeriodStart,
+            invoice.PeriodEnd,
+            invoice.StatusTransitions?.PaidAt,
+            invoice.HostedInvoiceUrl,
+            invoice.InvoicePdf,
+            TryGetMetadata(lookupMetadata, TenantMetadataKey),
+            TryGetMetadata(lookupMetadata, ProjectMetadataKey),
+            TryGetMetadata(lookupMetadata, TierMetadataKey),
+            metadata);
+    }
+
+    private static void ValidateCheckoutRequest(StripeCheckoutSessionRequest request)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.TenantId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.ProjectId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.TierName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.StripePriceId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.SuccessUrl);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.CancelUrl);
+
+        if (string.IsNullOrWhiteSpace(request.StripeCustomerId)
+            && string.IsNullOrWhiteSpace(request.CustomerEmail))
+        {
+            throw new ArgumentException(
+                "Checkout requires either an existing Stripe customer id or a customer email.",
+                nameof(request));
+        }
+
+        if (request.Quantity <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(request), request.Quantity, "Checkout quantity must be positive.");
+        }
+    }
+
+    private static StripeSubscriptionSnapshot ToSubscriptionSnapshot(Subscription subscription)
+    {
+        ArgumentNullException.ThrowIfNull(subscription);
+
+        var metadata = CopyMetadata(subscription.Metadata);
+        return new StripeSubscriptionSnapshot(
+            subscription.Id,
+            subscription.CustomerId,
+            subscription.Status,
+            TryGetMetadata(metadata, TenantMetadataKey),
+            TryGetMetadata(metadata, ProjectMetadataKey),
+            TryGetMetadata(metadata, TierMetadataKey),
+            subscription.CancelAtPeriodEnd,
+            subscription.CanceledAt,
+            subscription.Created,
+            subscription.LatestInvoiceId,
+            metadata);
+    }
+
+    private static PaymentCheckoutSessionSnapshot ToPaymentCheckoutSessionSnapshot(StripeCheckoutSessionSnapshot session) =>
+        new(
+            ProviderName,
+            session.SessionId,
+            session.Url,
+            session.TenantId,
+            session.ProjectId,
+            session.TierName,
+            session.StripeCustomerId,
+            session.StripeSubscriptionId);
+
+    private static PaymentSubscriptionSnapshot ToPaymentSubscriptionSnapshot(StripeSubscriptionSnapshot subscription) =>
+        new(
+            ProviderName,
+            subscription.SubscriptionId,
+            subscription.StripeCustomerId,
+            subscription.Status,
+            subscription.TenantId,
+            subscription.ProjectId,
+            subscription.TierName,
+            subscription.CancelAtPeriodEnd,
+            subscription.CanceledAt,
+            subscription.CreatedAt,
+            subscription.LatestInvoiceId,
+            subscription.Metadata);
+
+    private static PaymentWebhookEventSnapshot ToPaymentWebhookEventSnapshot(StripeWebhookEventSnapshot webhookEvent) =>
+        new(
+            ProviderName,
+            webhookEvent.EventId,
+            webhookEvent.EventType,
+            webhookEvent.CreatedAt,
+            webhookEvent.Livemode,
+            webhookEvent.ObjectId,
+            webhookEvent.ObjectType,
+            webhookEvent.Metadata);
+
+    private static PaymentInvoiceReconciliationSnapshot ToPaymentInvoiceReconciliationSnapshot(
+        StripeInvoiceReconciliationSnapshot invoice) =>
+        new(
+            ProviderName,
+            invoice.InvoiceId,
+            invoice.StripeCustomerId,
+            invoice.StripeSubscriptionId,
+            invoice.Status,
+            invoice.Currency,
+            invoice.AmountDue,
+            invoice.AmountPaid,
+            invoice.AmountRemaining,
+            invoice.PeriodStart,
+            invoice.PeriodEnd,
+            invoice.PaidAt,
+            invoice.HostedInvoiceUrl,
+            invoice.InvoicePdfUrl,
+            invoice.TenantId,
+            invoice.ProjectId,
+            invoice.TierName,
+            invoice.Metadata);
+
+    private static Dictionary<string, string> BuildPaymentsMetadata(
+        string tenantId,
+        string projectId,
+        string tierName,
+        IReadOnlyDictionary<string, string>? metadata)
+    {
+        var copy = CopyMetadata(metadata);
+        copy[TenantMetadataKey] = tenantId;
+        copy[ProjectMetadataKey] = projectId;
+        copy[TierMetadataKey] = tierName;
+        return copy;
+    }
+
+    private static Dictionary<string, string> CopyMetadata(IReadOnlyDictionary<string, string>? metadata) =>
+        metadata is null
+            ? new Dictionary<string, string>(StringComparer.Ordinal)
+            : new Dictionary<string, string>(metadata, StringComparer.Ordinal);
+
+    private static Dictionary<string, string> MergeMetadata(
+        IReadOnlyDictionary<string, string> primary,
+        IReadOnlyDictionary<string, string> overrides)
+    {
+        var merged = CopyMetadata(primary);
+        foreach (var item in overrides)
+        {
+            merged[item.Key] = item.Value;
+        }
+
+        return merged;
+    }
+
+    private static string? TryGetMetadata(IReadOnlyDictionary<string, string> metadata, string key) =>
+        metadata.TryGetValue(key, out var value) ? value : null;
+}

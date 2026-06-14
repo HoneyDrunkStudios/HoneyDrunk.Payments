@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>HoneyDrunk.Payments.Stripe</PackageId>
+    <Description>Stripe payment and billing adapter for HoneyDrunk metered usage, subscriptions, webhooks, and invoice reconciliation.</Description>
+    <PackageTags>honeydrunk;payments;billing;stripe</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HoneyDrunk.Standards" Version="0.2.9" PrivateAssets="all" />
+    <PackageReference Include="HoneyDrunk.Kernel.Abstractions" Version="0.8.0" />
+    <PackageReference Include="Stripe.net" Version="52.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HoneyDrunk.Payments.Abstractions\HoneyDrunk.Payments.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HoneyDrunk.Payments.Stripe.Tests" />
+  </ItemGroup>
+
+</Project>
