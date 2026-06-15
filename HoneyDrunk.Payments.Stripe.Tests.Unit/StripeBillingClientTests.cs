@@ -636,6 +636,72 @@ public sealed class StripeBillingClientTests
     }
 
     [Fact]
+    public async Task BillingClientAcceptsRealStripeSignedWebhookPayload()
+    {
+        const string WebhookSecret = "whsec_test_secret";
+        const string Payload = """
+            {
+              "id": "evt_signed",
+              "object": "event",
+              "created": 1710000000,
+              "livemode": false,
+              "type": "customer.subscription.updated",
+              "data": {
+                "object": {
+                  "id": "sub_signed",
+                  "object": "subscription",
+                  "metadata": {
+                    "project_id": "project-signed"
+                  }
+                }
+              }
+            }
+            """;
+        var client = new StripeBillingClient(
+            new StripeBillingSdk(new FixedStripeApiKeyProvider("sk_test")),
+            new FixedStripeWebhookSecretProvider(WebhookSecret));
+
+        var snapshot = await client.ValidateWebhookEventAsync(
+            Payload,
+            CreateStripeSignatureHeader(Payload, WebhookSecret),
+            CancellationToken.None);
+
+        Assert.Equal("evt_signed", snapshot.EventId);
+        Assert.Equal("customer.subscription.updated", snapshot.EventType);
+        Assert.Equal("sub_signed", snapshot.ObjectId);
+        Assert.Equal("project-signed", snapshot.Metadata[StripeBillingClient.ProjectMetadataKey]);
+    }
+
+    [Fact]
+    public async Task BillingClientRejectsRealStripeWebhookPayloadWithInvalidSignature()
+    {
+        const string Payload = """
+            {
+              "id": "evt_invalid_signature",
+              "object": "event",
+              "created": 1710000000,
+              "livemode": false,
+              "type": "customer.subscription.updated",
+              "data": {
+                "object": {
+                  "id": "sub_invalid_signature",
+                  "object": "subscription"
+                }
+              }
+            }
+            """;
+        var client = new StripeBillingClient(
+            new StripeBillingSdk(new FixedStripeApiKeyProvider("sk_test")),
+            new FixedStripeWebhookSecretProvider("whsec_expected"));
+
+        await Assert.ThrowsAsync<StripeException>(async () =>
+            await client.ValidateWebhookEventAsync(
+                Payload,
+                CreateStripeSignatureHeader(Payload, "whsec_wrong"),
+                CancellationToken.None).AsTask());
+    }
+
+    [Fact]
     public async Task BillingClientReconcilesInvoiceWithSubscriptionMetadataFallback()
     {
         var paidAt = DateTime.UtcNow;
@@ -823,6 +889,15 @@ public sealed class StripeBillingClientTests
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
             await client.RecordMeterEventAsync(meterEvent, cancellation.Token));
+    }
+
+    private static string CreateStripeSignatureHeader(string payload, string webhookSecret)
+    {
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var signedPayload = $"{timestamp}.{payload}";
+        using var hmac = new System.Security.Cryptography.HMACSHA256(System.Text.Encoding.UTF8.GetBytes(webhookSecret));
+        var signature = Convert.ToHexString(hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(signedPayload))).ToLowerInvariant();
+        return $"t={timestamp},v1={signature}";
     }
 
     private sealed class CapturingStripeMeterEventBuffer : IStripeMeterEventBuffer
