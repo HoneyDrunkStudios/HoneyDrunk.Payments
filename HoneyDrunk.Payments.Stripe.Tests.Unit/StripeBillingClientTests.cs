@@ -128,6 +128,30 @@ public sealed class StripeBillingClientTests
     }
 
     [Fact]
+    public async Task EmitAsyncRejectsSensitiveBillingAttributeKeys()
+    {
+        var adapter = new StripeBillingEventEmitter(new CapturingStripeMeterEventBuffer());
+        var billingEvent = new BillingEvent(
+            new TenantId("01ARZ3NDEKTSV4RRFFQ69G5FAV"),
+            "payments.submission.accepted",
+            "email",
+            Units: 1,
+            DateTimeOffset.UtcNow,
+            "corr-1",
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [StripeBillingEventEmitter.BillingEventIdAttributeKey] = "bill-event-1",
+                ["api_token"] = "secret",
+            });
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await adapter.EmitAsync(billingEvent, CancellationToken.None));
+
+        Assert.Equal("billingEvent.Attributes", exception.ParamName);
+        Assert.Contains("sensitive", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task MeterEventReplayDispatcherSendsBufferedEventToStripeClient()
     {
         var client = new CapturingStripeMeteredBillingClient();
@@ -179,6 +203,29 @@ public sealed class StripeBillingClientTests
     }
 
     [Fact]
+    public async Task BillingClientRejectsOversizedMeterMetadata()
+    {
+        var client = new StripeBillingClient(new CapturingStripeBillingSdk());
+        var metadata = Enumerable
+            .Range(0, StripeMetadataPolicy.MaxCustomMetadataEntries + 1)
+            .ToDictionary(index => $"safe_key_{index}", index => "safe-value", StringComparer.Ordinal);
+        var meterEvent = new StripeMeterEvent(
+            "payments.submission.accepted.email",
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            3,
+            DateTimeOffset.UtcNow,
+            "bill-event-1",
+            "corr-1",
+            metadata);
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await client.RecordMeterEventAsync(meterEvent, CancellationToken.None));
+
+        Assert.Equal("meterEvent.Metadata", exception.ParamName);
+        Assert.Contains("custom entries", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task BillingClientCreatesCheckoutSessionWithPaymentsMetadata()
     {
         var sdk = new CapturingStripeBillingSdk
@@ -222,6 +269,31 @@ public sealed class StripeBillingClientTests
         Assert.Equal("01ARZ3NDEKTSV4RRFFQ69G5FAV", sdk.LastCheckoutSessionOptions.Metadata[StripeBillingClient.TenantMetadataKey]);
         Assert.Equal("project-1", sdk.LastCheckoutSessionOptions.SubscriptionData.Metadata[StripeBillingClient.ProjectMetadataKey]);
         Assert.Equal("Starter", sdk.LastCheckoutSessionOptions.SubscriptionData.Metadata[StripeBillingClient.TierMetadataKey]);
+    }
+
+    [Fact]
+    public async Task BillingClientRejectsSensitiveCheckoutMetadataKeys()
+    {
+        var client = new StripeBillingClient(new CapturingStripeBillingSdk());
+        var request = new StripeCheckoutSessionRequest(
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "project-1",
+            "Starter",
+            "price_starter",
+            "https://payments.test/success",
+            "https://payments.test/cancel",
+            "checkout-1",
+            CustomerEmail: "billing@example.com",
+            Metadata: new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["webhook_secret"] = "whsec_test",
+            });
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await client.CreateCheckoutSessionAsync(request));
+
+        Assert.Equal("request.Metadata", exception.ParamName);
+        Assert.Contains("sensitive", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

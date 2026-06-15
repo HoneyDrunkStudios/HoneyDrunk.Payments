@@ -134,7 +134,7 @@ public sealed class StripeBillingClient :
             throw new ArgumentOutOfRangeException(nameof(meterEvent), meterEvent.Units, "Meter event units must be positive.");
         }
 
-        var payload = CopyMetadata(meterEvent.Metadata);
+        var payload = StripeMetadataPolicy.CopyOutboundMetadata(meterEvent.Metadata, "meterEvent.Metadata");
         payload[MeterCustomerPayloadKey] = meterEvent.CustomerKey;
         payload[MeterValuePayloadKey] = meterEvent.Units.ToString(CultureInfo.InvariantCulture);
         payload[MeterEventIdPayloadKey] = meterEvent.IdempotencyKey;
@@ -426,7 +426,7 @@ public sealed class StripeBillingClient :
         string tierName,
         IReadOnlyDictionary<string, string>? metadata)
     {
-        var copy = CopyMetadata(metadata);
+        var copy = StripeMetadataPolicy.CopyOutboundMetadata(metadata, "request.Metadata");
         copy[TenantMetadataKey] = tenantId;
         copy[ProjectMetadataKey] = projectId;
         copy[TierMetadataKey] = tierName;

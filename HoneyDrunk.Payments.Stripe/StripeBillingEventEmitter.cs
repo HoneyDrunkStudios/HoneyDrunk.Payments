@@ -28,6 +28,7 @@ public sealed class StripeBillingEventEmitter(IStripeMeterEventBuffer buffer) : 
         ArgumentNullException.ThrowIfNull(billingEvent.Attributes);
 
         ValidateUnits(billingEvent.Units);
+        StripeMetadataPolicy.ValidateOutboundMetadata(billingEvent.Attributes, "billingEvent.Attributes");
         var billingEventId = GetBillingEventId(billingEvent);
 
         var meterEvent = new StripeMeterEvent(
