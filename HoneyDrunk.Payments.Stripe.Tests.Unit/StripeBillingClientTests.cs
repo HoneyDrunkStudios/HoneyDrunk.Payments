@@ -24,6 +24,32 @@ public sealed class StripeBillingClientTests
     }
 
     [Fact]
+    public void StripeWebhookEventValidatorPublicConstructorsDoNotAcceptRawSecretString()
+    {
+        var rawSecretConstructor = typeof(StripeWebhookEventValidator)
+            .GetConstructors()
+            .SingleOrDefault(constructor =>
+            {
+                var parameters = constructor.GetParameters();
+                return parameters.Any(parameter => parameter.ParameterType == typeof(string));
+            });
+
+        Assert.Null(rawSecretConstructor);
+    }
+
+    [Fact]
+    public void BillingClientPublicConstructorDoesNotRequireWebhookSecretProvider()
+    {
+        var constructorParameters = typeof(StripeBillingClient)
+            .GetConstructors()
+            .Select(constructor => constructor.GetParameters().Select(parameter => parameter.ParameterType).ToArray())
+            .ToArray();
+
+        Assert.Contains(constructorParameters, parameters => parameters.SequenceEqual([typeof(IStripeApiKeyProvider)]));
+        Assert.DoesNotContain(constructorParameters, parameters => parameters.Contains(typeof(IStripeWebhookSecretProvider)));
+    }
+
+    [Fact]
     public void WebhookValidationContractsDoNotExposeRawSecretParameters()
     {
         var paymentValidatorParameters = typeof(IPaymentWebhookEventValidator)
@@ -429,6 +455,34 @@ public sealed class StripeBillingClientTests
     }
 
     [Theory]
+    [InlineData("+1 (555) 867-5309")]
+    [InlineData("4242 4242 4242 4242")]
+    [InlineData("Bearer abc123")]
+    [InlineData("sha256=abc123")]
+    [InlineData("a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6")]
+    public async Task BillingClientRejectsSensitiveMeterMetadataValues(string sensitiveValue)
+    {
+        var client = new StripeBillingClient(new CapturingStripeBillingSdk());
+        var meterEvent = new StripeMeterEvent(
+            "payments_submission_accepted_email",
+            "cus_test",
+            3,
+            DateTimeOffset.UtcNow,
+            "bill-event-1",
+            "corr-1",
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["project_context"] = sensitiveValue,
+            });
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await client.RecordMeterEventAsync(meterEvent, CancellationToken.None));
+
+        Assert.Equal("meterEvent.Metadata", exception.ParamName);
+        Assert.Contains("sensitive", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
     [InlineData("tok_test_123")]
     [InlineData("billing@example.com")]
     public async Task BillingClientRejectsSensitiveMeterCustomerKey(string customerKey)
@@ -636,6 +690,36 @@ public sealed class StripeBillingClientTests
     }
 
     [Theory]
+    [InlineData("+1 (555) 867-5309")]
+    [InlineData("4242 4242 4242 4242")]
+    [InlineData("Bearer abc123")]
+    [InlineData("sha256=abc123")]
+    [InlineData("a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6")]
+    public async Task BillingClientRejectsSensitiveCheckoutMetadataValues(string sensitiveValue)
+    {
+        var client = new StripeBillingClient(new CapturingStripeBillingSdk());
+        var request = new StripeCheckoutSessionRequest(
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "project-1",
+            "Starter",
+            "price_starter",
+            "https://payments.test/success",
+            "https://payments.test/cancel",
+            "checkout-1",
+            CustomerEmail: "billing@example.com",
+            Metadata: new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["project_context"] = sensitiveValue,
+            });
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await client.CreateCheckoutSessionAsync(request));
+
+        Assert.Equal("request.Metadata", exception.ParamName);
+        Assert.Contains("sensitive", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
     [InlineData("request.StripeCustomerId", "price_starter", "checkout-1", "billing@example.com")]
     [InlineData("request.IdempotencyKey", "price_starter", "tok_test_123", null)]
     [InlineData("request.StripePriceId", "sk_test_123", "checkout-1", null)]
@@ -669,6 +753,35 @@ public sealed class StripeBillingClientTests
     [InlineData("request.ProjectId", "01ARZ3NDEKTSV4RRFFQ69G5FAV", "sk_test_123", "Starter")]
     [InlineData("request.TierName", "01ARZ3NDEKTSV4RRFFQ69G5FAV", "project-1", "tok_test_123")]
     public async Task BillingClientRejectsSensitiveReservedCheckoutMetadataValues(
+        string expectedParameterName,
+        string tenantId,
+        string projectId,
+        string tierName)
+    {
+        var client = new StripeBillingClient(new CapturingStripeBillingSdk());
+        var request = new StripeCheckoutSessionRequest(
+            tenantId,
+            projectId,
+            tierName,
+            "price_starter",
+            "https://payments.test/success",
+            "https://payments.test/cancel",
+            "checkout-1",
+            CustomerEmail: "billing@example.com");
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await client.CreateCheckoutSessionAsync(request));
+
+        Assert.Equal(expectedParameterName, exception.ParamName);
+        Assert.Contains("sensitive", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("request.ProjectId", "01ARZ3NDEKTSV4RRFFQ69G5FAV", "+1 (555) 867-5309", "Starter")]
+    [InlineData("request.ProjectId", "01ARZ3NDEKTSV4RRFFQ69G5FAV", "4242 4242 4242 4242", "Starter")]
+    [InlineData("request.TierName", "01ARZ3NDEKTSV4RRFFQ69G5FAV", "project-1", "Bearer abc123")]
+    [InlineData("request.TierName", "01ARZ3NDEKTSV4RRFFQ69G5FAV", "project-1", "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6")]
+    public async Task BillingClientRejectsSensitiveReservedCheckoutMetadataShapes(
         string expectedParameterName,
         string tenantId,
         string projectId,
@@ -1045,10 +1158,10 @@ public sealed class StripeBillingClientTests
     }
 
     [Fact]
-    public async Task BillingClientNormalizesWebhookEventMetadata()
+    public async Task StripeWebhookEventValidatorNormalizesWebhookEventMetadata()
     {
-        var sdk = new CapturingStripeBillingSdk();
-        var client = new StripeBillingClient(sdk, new FixedStripeWebhookSecretProvider("whsec_test"));
+        var constructor = new CapturingStripeWebhookEventConstructor();
+        var client = new StripeWebhookEventValidator(new FixedStripeWebhookSecretProvider("whsec_test"), constructor);
         const string Payload = """
             {
               "id": "evt_test",
@@ -1075,16 +1188,17 @@ public sealed class StripeBillingClientTests
         Assert.Equal("sub_test", snapshot.ObjectId);
         Assert.Equal("subscription", snapshot.ObjectType);
         Assert.Equal("project-1", snapshot.Metadata["project_id"]);
-        Assert.Equal(Payload, sdk.LastWebhookPayload);
-        Assert.Equal("t=1,v1=test", sdk.LastWebhookSignature);
-        Assert.Equal("whsec_test", sdk.LastWebhookSecret);
+        Assert.Equal(Payload, constructor.LastWebhookPayload);
+        Assert.Equal("t=1,v1=test", constructor.LastWebhookSignature);
+        Assert.Equal("whsec_test", constructor.LastWebhookSecret);
     }
 
     [Fact]
-    public async Task BillingClientStripsSensitiveInboundWebhookMetadata()
+    public async Task StripeWebhookEventValidatorStripsSensitiveInboundWebhookMetadata()
     {
-        var sdk = new CapturingStripeBillingSdk();
-        IPaymentWebhookEventValidator client = new StripeBillingClient(sdk, new FixedStripeWebhookSecretProvider("whsec_test"));
+        IPaymentWebhookEventValidator client = new StripeWebhookEventValidator(
+            new FixedStripeWebhookSecretProvider("whsec_test"),
+            new CapturingStripeWebhookEventConstructor());
         const string Payload = """
             {
               "id": "evt_test",
@@ -1120,10 +1234,11 @@ public sealed class StripeBillingClientTests
     [InlineData("Bearer abc123")]
     [InlineData("sha256=abc123")]
     [InlineData("a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6")]
-    public async Task BillingClientStripsSensitiveInboundWebhookMetadataValues(string sensitiveValue)
+    public async Task StripeWebhookEventValidatorStripsSensitiveInboundWebhookMetadataValues(string sensitiveValue)
     {
-        var sdk = new CapturingStripeBillingSdk();
-        var client = new StripeBillingClient(sdk, new FixedStripeWebhookSecretProvider("whsec_test"));
+        var client = new StripeWebhookEventValidator(
+            new FixedStripeWebhookSecretProvider("whsec_test"),
+            new CapturingStripeWebhookEventConstructor());
         var payload = $$"""
             {
               "id": "evt_test",
@@ -1151,10 +1266,11 @@ public sealed class StripeBillingClientTests
     }
 
     [Fact]
-    public async Task BillingClientSupportsProviderNeutralWebhookContract()
+    public async Task StripeWebhookEventValidatorSupportsProviderNeutralWebhookContract()
     {
-        var sdk = new CapturingStripeBillingSdk();
-        IPaymentWebhookEventValidator client = new StripeBillingClient(sdk, new FixedStripeWebhookSecretProvider("whsec_test"));
+        IPaymentWebhookEventValidator client = new StripeWebhookEventValidator(
+            new FixedStripeWebhookSecretProvider("whsec_test"),
+            new CapturingStripeWebhookEventConstructor());
         const string Payload = """
             {
               "id": "evt_test",
@@ -1180,7 +1296,7 @@ public sealed class StripeBillingClientTests
     }
 
     [Fact]
-    public async Task BillingClientAcceptsRealStripeSignedWebhookPayload()
+    public async Task StripeWebhookEventValidatorAcceptsRealStripeSignedWebhookPayload()
     {
         const string WebhookSecret = "whsec_test_secret";
         const string Payload = """
@@ -1201,9 +1317,7 @@ public sealed class StripeBillingClientTests
               }
             }
             """;
-        var client = new StripeBillingClient(
-            new StripeBillingSdk(new FixedStripeApiKeyProvider("sk_test")),
-            new FixedStripeWebhookSecretProvider(WebhookSecret));
+        var client = new StripeWebhookEventValidator(new FixedStripeWebhookSecretProvider(WebhookSecret));
 
         var snapshot = await client.ValidateWebhookEventAsync(
             Payload,
@@ -1217,7 +1331,7 @@ public sealed class StripeBillingClientTests
     }
 
     [Fact]
-    public async Task BillingClientRejectsRealStripeWebhookPayloadWithInvalidSignature()
+    public async Task StripeWebhookEventValidatorRejectsRealStripeWebhookPayloadWithInvalidSignature()
     {
         const string Payload = """
             {
@@ -1234,9 +1348,7 @@ public sealed class StripeBillingClientTests
               }
             }
             """;
-        var client = new StripeBillingClient(
-            new StripeBillingSdk(new FixedStripeApiKeyProvider("sk_test")),
-            new FixedStripeWebhookSecretProvider("whsec_expected"));
+        var client = new StripeWebhookEventValidator(new FixedStripeWebhookSecretProvider("whsec_expected"));
 
         await Assert.ThrowsAsync<StripeException>(async () =>
             await client.ValidateWebhookEventAsync(
@@ -1520,12 +1632,6 @@ public sealed class StripeBillingClientTests
 
         public string? LastIdempotencyKey { get; private set; }
 
-        public string? LastWebhookPayload { get; private set; }
-
-        public string? LastWebhookSignature { get; private set; }
-
-        public string? LastWebhookSecret { get; private set; }
-
         public StripeCheckout.Session CheckoutSession { get; init; } = new()
         {
             Id = "cs_default",
@@ -1581,18 +1687,27 @@ public sealed class StripeBillingClientTests
             return Task.FromResult(Subscription);
         }
 
+        public Task<Invoice> GetInvoiceAsync(string invoiceId, CancellationToken cancellationToken)
+        {
+            LastInvoiceId = invoiceId;
+            return Task.FromResult(Invoice);
+        }
+    }
+
+    private sealed class CapturingStripeWebhookEventConstructor : IStripeWebhookEventConstructor
+    {
+        public string? LastWebhookPayload { get; private set; }
+
+        public string? LastWebhookSignature { get; private set; }
+
+        public string? LastWebhookSecret { get; private set; }
+
         public Event ConstructEvent(string payload, string signatureHeader, string webhookSecret)
         {
             LastWebhookPayload = payload;
             LastWebhookSignature = signatureHeader;
             LastWebhookSecret = webhookSecret;
             return EventUtility.ParseEvent(payload, throwOnApiVersionMismatch: false);
-        }
-
-        public Task<Invoice> GetInvoiceAsync(string invoiceId, CancellationToken cancellationToken)
-        {
-            LastInvoiceId = invoiceId;
-            return Task.FromResult(Invoice);
         }
     }
 }

@@ -12,10 +12,8 @@ namespace HoneyDrunk.Payments.Stripe;
 public sealed class StripeBillingClient :
     IStripeMeteredBillingClient,
     IStripeSubscriptionLifecycleClient,
-    IStripeWebhookEventValidator,
     IStripeInvoiceReconciliationClient,
     IPaymentSubscriptionLifecycleClient,
-    IPaymentWebhookEventValidator,
     IPaymentInvoiceReconciliationClient
 {
     internal const string TenantMetadataKey = "payments_tenant_id";
@@ -32,28 +30,22 @@ public sealed class StripeBillingClient :
     private const string ProviderName = PaymentProviderNames.Stripe;
 
     private readonly IStripeBillingSdk sdk;
-    private readonly IStripeWebhookSecretProvider? webhookSecretProvider;
     private readonly TimeProvider timeProvider;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="StripeBillingClient"/> class.
     /// </summary>
     /// <param name="apiKeyProvider">Stripe API key provider.</param>
-    /// <param name="webhookSecretProvider">Stripe webhook secret provider.</param>
-    public StripeBillingClient(
-        IStripeApiKeyProvider apiKeyProvider,
-        IStripeWebhookSecretProvider webhookSecretProvider)
-        : this(new StripeBillingSdk(apiKeyProvider), webhookSecretProvider)
+    public StripeBillingClient(IStripeApiKeyProvider apiKeyProvider)
+        : this(new StripeBillingSdk(apiKeyProvider))
     {
     }
 
     internal StripeBillingClient(
         IStripeBillingSdk sdk,
-        IStripeWebhookSecretProvider? webhookSecretProvider = null,
         TimeProvider? timeProvider = null)
     {
         this.sdk = sdk ?? throw new ArgumentNullException(nameof(sdk));
-        this.webhookSecretProvider = webhookSecretProvider;
         this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
@@ -111,13 +103,6 @@ public sealed class StripeBillingClient :
 
         return ToPaymentSubscriptionSnapshot(subscription);
     }
-
-    /// <inheritdoc />
-    async ValueTask<PaymentWebhookEventSnapshot> IPaymentWebhookEventValidator.ValidateWebhookEventAsync(
-        string payload,
-        string signatureHeader,
-        CancellationToken cancellationToken) =>
-        ToPaymentWebhookEventSnapshot(await ValidateWebhookEventAsync(payload, signatureHeader, cancellationToken).ConfigureAwait(false));
 
     /// <inheritdoc />
     async ValueTask<PaymentInvoiceReconciliationSnapshot> IPaymentInvoiceReconciliationClient.ReconcileInvoiceAsync(
@@ -272,36 +257,6 @@ public sealed class StripeBillingClient :
     }
 
     /// <inheritdoc />
-    public async ValueTask<StripeWebhookEventSnapshot> ValidateWebhookEventAsync(
-        string payload,
-        string signatureHeader,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(payload);
-        ArgumentException.ThrowIfNullOrWhiteSpace(signatureHeader);
-        var provider = webhookSecretProvider
-            ?? throw new InvalidOperationException("Stripe webhook validation requires an IStripeWebhookSecretProvider.");
-
-        var webhookSecret = await provider.GetWebhookSecretAsync(cancellationToken).ConfigureAwait(false);
-        ArgumentException.ThrowIfNullOrWhiteSpace(webhookSecret);
-
-        var stripeEvent = sdk.ConstructEvent(payload, signatureHeader, webhookSecret);
-        var dataObject = stripeEvent.Data?.Object;
-        var metadata = dataObject is IHasMetadata metadataObject
-            ? CopyInboundMetadata(metadataObject.Metadata)
-            : new Dictionary<string, string>(StringComparer.Ordinal);
-
-        return new StripeWebhookEventSnapshot(
-            stripeEvent.Id,
-            stripeEvent.Type,
-            stripeEvent.Created,
-            stripeEvent.Livemode,
-            (dataObject as IHasId)?.Id,
-            dataObject?.Object,
-            metadata);
-    }
-
-    /// <inheritdoc />
     public async ValueTask<StripeInvoiceReconciliationSnapshot> ReconcileInvoiceAsync(
         string invoiceId,
         CancellationToken cancellationToken = default)
@@ -445,17 +400,6 @@ public sealed class StripeBillingClient :
             subscription.CreatedAt,
             subscription.LatestInvoiceId,
             subscription.Metadata);
-
-    private static PaymentWebhookEventSnapshot ToPaymentWebhookEventSnapshot(StripeWebhookEventSnapshot webhookEvent) =>
-        new(
-            ProviderName,
-            webhookEvent.EventId,
-            webhookEvent.EventType,
-            webhookEvent.CreatedAt,
-            webhookEvent.Livemode,
-            webhookEvent.ObjectId,
-            webhookEvent.ObjectType,
-            webhookEvent.Metadata);
 
     private static PaymentInvoiceReconciliationSnapshot ToPaymentInvoiceReconciliationSnapshot(
         StripeInvoiceReconciliationSnapshot invoice) =>

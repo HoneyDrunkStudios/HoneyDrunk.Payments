@@ -68,15 +68,6 @@ internal sealed class StripeBillingSdk : IStripeBillingSdk
             cancellationToken).ConfigureAwait(false);
 
     /// <inheritdoc />
-    public Event ConstructEvent(string payload, string signatureHeader, string webhookSecret) =>
-        EventUtility.ConstructEvent(
-            payload,
-            signatureHeader,
-            webhookSecret,
-            tolerance: 300,
-            throwOnApiVersionMismatch: false);
-
-    /// <inheritdoc />
     public async Task<Invoice> GetInvoiceAsync(string invoiceId, CancellationToken cancellationToken) =>
         await invoices.GetAsync(
             invoiceId,

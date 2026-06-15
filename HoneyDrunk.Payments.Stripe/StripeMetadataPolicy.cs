@@ -99,7 +99,7 @@ internal static class StripeMetadataPolicy
     {
         ArgumentNullException.ThrowIfNull(value, parameterName);
 
-        if (!IsSafeProviderMetadataValue(value))
+        if (!IsSafeOutboundMetadataValue(value))
         {
             throw new ArgumentException(
                 $"Stripe metadata values cannot exceed {MaxMetadataValueLength} characters or contain sensitive-looking provider data.",
@@ -173,8 +173,11 @@ internal static class StripeMetadataPolicy
         value is not null && value.Length <= MaxMetadataValueLength;
 
     private static bool IsSafeInboundMetadataValue(string? value) =>
+        IsSafeOutboundMetadataValue(value);
+
+    private static bool IsSafeOutboundMetadataValue(string? value) =>
         IsSafeProviderMetadataValue(value)
-        && !LooksLikeInboundSecretValue(value);
+        && !LooksLikeSensitiveValue(value);
 
     private static bool IsSafeProviderMetadataValue(string? value) =>
         value is not null
@@ -182,7 +185,7 @@ internal static class StripeMetadataPolicy
         && !value.Contains('@', StringComparison.Ordinal)
         && !SensitiveValuePrefixes.Any(prefix => value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
 
-    private static bool LooksLikeInboundSecretValue(string? value)
+    private static bool LooksLikeSensitiveValue(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {

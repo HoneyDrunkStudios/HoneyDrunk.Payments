@@ -14,15 +14,17 @@ and subscription-state persistence. They compose Payments provider packages
 instead of carrying Stripe SDK code in product repos.
 
 Provider packages should keep SDKs and provider-specific secrets behind their
-own composition boundary. For Stripe, hosts provide `IStripeApiKeyProvider`
-and `IStripeWebhookSecretProvider` backed by Vault / `ISecretStore`, then pass
-per-event billing idempotency through the `billing_event_id` billing attribute
-and the persisted provider customer mapping through `provider_customer_id`.
-Kernel `IBillingEventEmitter` composition also requires an
-`IStripeMeterEventBuffer`; product hosts own the durable at-least-once store and
-use `StripeMeterEventReplayDispatcher` to drain accepted events to Stripe.
-Checkout sessions enable Stripe Tax, and Stripe requests are pinned to API
-version `2026-05-27.dahlia`.
+own composition boundary. For Stripe, API transport composes
+`StripeBillingClient` with `IStripeApiKeyProvider`, while webhook endpoints
+compose `StripeWebhookEventValidator` with `IStripeWebhookSecretProvider`.
+Both providers should be backed by Vault / `ISecretStore` and scoped to the
+host operation that needs them. Hosts pass per-event billing idempotency through
+the `billing_event_id` billing attribute and the persisted provider customer
+mapping through `provider_customer_id`. Kernel `IBillingEventEmitter`
+composition also requires an `IStripeMeterEventBuffer`; product hosts own the
+durable at-least-once store and use `StripeMeterEventReplayDispatcher` to drain
+accepted events to Stripe. Checkout sessions enable Stripe Tax, and Stripe
+requests are pinned to API version `2026-05-27.dahlia`.
 
 Reusable provider contract assertions live in the approved test helper project
 `HoneyDrunk.Payments.Tests.Unit`.

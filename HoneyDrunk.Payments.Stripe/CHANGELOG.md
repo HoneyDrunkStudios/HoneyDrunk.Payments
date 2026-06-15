@@ -9,8 +9,8 @@
 - Enforce checkout idempotency keys before calling Stripe Checkout.
 - Enable Stripe Tax on Checkout subscription sessions.
 - Pin Stripe API requests to Stripe API version `2026-05-27.dahlia`.
-- Enforce outbound Stripe metadata bounds and sensitive-key rejection before
-  Checkout and meter-event provider calls.
+- Enforce outbound Stripe metadata bounds and sensitive-key/sensitive-value
+  rejection before Checkout and meter-event provider calls.
 - Validate reserved Payments metadata values before sending Checkout and
   subscription metadata to Stripe.
 - Normalize Kernel billing event names into Stripe-safe meter names before
@@ -35,5 +35,7 @@
   API-key strings in Payments client state.
 - Resolve Stripe webhook endpoint secrets through `IStripeWebhookSecretProvider`
   instead of accepting raw webhook secrets on validator contracts.
+- Split Stripe API-key transport and webhook-secret validation composition
+  between `StripeBillingClient` and `StripeWebhookEventValidator`.
 - Document Stripe meter configuration requirements for `customer_key` customer
   mapping and product-boundary diagnostics for meter-emission failures.

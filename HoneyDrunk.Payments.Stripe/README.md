@@ -14,11 +14,14 @@ It also implements the provider-neutral `HoneyDrunk.Payments.Abstractions`
 contracts for product code that should not depend directly on Stripe-specific
 types.
 
-Hosts construct `StripeBillingClient` with `IStripeApiKeyProvider` and
-`IStripeWebhookSecretProvider`. Providers should resolve Stripe API keys and
-webhook endpoint secrets from the host Vault / `ISecretStore` boundary at call
-time; the Payments package does not accept or retain raw provider-secret strings
-in public client state.
+Hosts construct API transport with `StripeBillingClient` and
+`IStripeApiKeyProvider`. Webhook endpoints construct
+`StripeWebhookEventValidator` with `IStripeWebhookSecretProvider`. Providers
+should resolve Stripe API keys and webhook endpoint secrets from the host Vault
+/ `ISecretStore` boundary at call time and should be scoped to the host
+operation that needs them; billing transports do not need webhook-secret access,
+and webhook validators do not need API-key access. The Payments package does not
+accept or retain raw provider-secret strings in public client state.
 
 `StripeBillingEventEmitter` requires an `IStripeMeterEventBuffer`. Missing
 composition is fail-closed instead of falling back to direct provider transport
@@ -58,9 +61,11 @@ is a deliberate Payments provider upgrade.
 
 Outbound caller metadata and reserved Payments metadata values
 (`payments_tenant_id`, `project_id`, and `tier_name`) are bounded and reject
-email-shaped values or explicit provider secret prefixes. Metadata keys still
-reject sensitive fragments such as `token`, `secret`, `card`, and `address`, but
-opaque values are not rejected only because they contain those substrings.
+email-shaped values, phone numbers, card-shaped values, bearer/signature-looking
+values, opaque secret-looking values, or explicit provider secret prefixes.
+Metadata keys still reject sensitive fragments such as `token`, `secret`,
+`card`, and `address`, but opaque values are not rejected only because they
+contain those substrings.
 Outbound provider-bound identifiers, including Stripe customer ids, price ids,
 idempotency keys, meter identifiers, correlation ids, subscription ids, invoice
 ids, and cancellation comments, reject email-shaped values and explicit provider

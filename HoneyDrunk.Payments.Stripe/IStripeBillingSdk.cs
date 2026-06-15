@@ -56,15 +56,6 @@ internal interface IStripeBillingSdk
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Constructs and validates a signed Stripe webhook event.
-    /// </summary>
-    /// <param name="payload">Raw webhook payload.</param>
-    /// <param name="signatureHeader">Stripe-Signature header.</param>
-    /// <param name="webhookSecret">Webhook endpoint secret.</param>
-    /// <returns>The Stripe event.</returns>
-    Event ConstructEvent(string payload, string signatureHeader, string webhookSecret);
-
-    /// <summary>
     /// Retrieves a Stripe invoice.
     /// </summary>
     /// <param name="invoiceId">Stripe invoice identifier.</param>

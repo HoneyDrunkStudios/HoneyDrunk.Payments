@@ -106,7 +106,8 @@ public sealed class StripePaymentProviderContractTests : PaymentProviderContract
             }
             """;
 
-        private readonly StripeBillingClient client;
+        private readonly StripeBillingClient billingClient;
+        private readonly StripeWebhookEventValidator webhookValidator;
 
         public StripeContractFixture()
             : base(new PaymentProviderContractExpectations(
@@ -124,18 +125,19 @@ public sealed class StripePaymentProviderContractTests : PaymentProviderContract
                 "t=1,v1=valid",
                 "t=1,v1=invalid"))
         {
-            client = new StripeBillingClient(
-                new ContractStripeBillingSdk(),
-                new FixedStripeWebhookSecretProvider("whsec_contract"));
+            billingClient = new StripeBillingClient(new ContractStripeBillingSdk());
+            webhookValidator = new StripeWebhookEventValidator(
+                new FixedStripeWebhookSecretProvider("whsec_contract"),
+                new ContractStripeWebhookEventConstructor());
         }
 
         public override string ProviderName => PaymentProviderNames.Stripe;
 
-        public override IPaymentSubscriptionLifecycleClient SubscriptionLifecycleClient => client;
+        public override IPaymentSubscriptionLifecycleClient SubscriptionLifecycleClient => billingClient;
 
-        public override IPaymentWebhookEventValidator WebhookEventValidator => client;
+        public override IPaymentWebhookEventValidator WebhookEventValidator => webhookValidator;
 
-        public override IPaymentInvoiceReconciliationClient InvoiceReconciliationClient => client;
+        public override IPaymentInvoiceReconciliationClient InvoiceReconciliationClient => billingClient;
 
         public override KernelBillingEventEmitter BillingEventEmitter { get; } =
             new StripeBillingEventEmitter(new ContractStripeMeterEventBuffer());
@@ -206,16 +208,6 @@ public sealed class StripePaymentProviderContractTests : PaymentProviderContract
                 Metadata = PaymentsMetadata(),
             });
 
-        public Event ConstructEvent(string payload, string signatureHeader, string webhookSecret)
-        {
-            if (!StringComparer.Ordinal.Equals(signatureHeader, "t=1,v1=valid"))
-            {
-                throw new StripeException("Invalid webhook signature.");
-            }
-
-            return EventUtility.ParseEvent(payload, throwOnApiVersionMismatch: false);
-        }
-
         public Task<Invoice> GetInvoiceAsync(string invoiceId, CancellationToken cancellationToken) =>
             Task.FromResult(new Invoice
             {
@@ -245,5 +237,18 @@ public sealed class StripePaymentProviderContractTests : PaymentProviderContract
                 [StripeBillingClient.ProjectMetadataKey] = "project-contract",
                 [StripeBillingClient.TierMetadataKey] = "Starter",
             };
+    }
+
+    private sealed class ContractStripeWebhookEventConstructor : IStripeWebhookEventConstructor
+    {
+        public Event ConstructEvent(string payload, string signatureHeader, string webhookSecret)
+        {
+            if (!StringComparer.Ordinal.Equals(signatureHeader, "t=1,v1=valid"))
+            {
+                throw new StripeException("Invalid webhook signature.");
+            }
+
+            return EventUtility.ParseEvent(payload, throwOnApiVersionMismatch: false);
+        }
     }
 }
