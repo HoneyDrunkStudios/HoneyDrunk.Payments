@@ -10,6 +10,7 @@ namespace HoneyDrunk.Payments.Stripe;
 public sealed class StripeBillingEventEmitter(IStripeMeterEventBuffer buffer) : KernelBillingEventEmitter
 {
     internal const string BillingEventIdAttributeKey = "billing_event_id";
+    internal const string ProviderCustomerIdAttributeKey = "provider_customer_id";
 
     private readonly IStripeMeterEventBuffer buffer = buffer ?? throw new ArgumentNullException(nameof(buffer));
 
@@ -29,32 +30,52 @@ public sealed class StripeBillingEventEmitter(IStripeMeterEventBuffer buffer) : 
         ArgumentNullException.ThrowIfNull(billingEvent.Attributes);
 
         ValidateUnits(billingEvent.Units);
-        StripeMetadataPolicy.ValidateOutboundMetadata(billingEvent.Attributes, "billingEvent.Attributes");
-        var billingEventId = GetBillingEventId(billingEvent);
+        var billingEventId = GetRequiredAttribute(billingEvent, BillingEventIdAttributeKey);
+        var providerCustomerId = GetRequiredAttribute(billingEvent, ProviderCustomerIdAttributeKey);
+        StripeMetadataPolicy.ValidateProviderReferenceValue(providerCustomerId, "billingEvent.Attributes");
+        var metadata = CreateMeterMetadata(billingEvent.Attributes);
 
         var meterEvent = new StripeMeterEvent(
             $"{billingEvent.EventType}.{billingEvent.OperationKey}",
-            billingEvent.TenantId.ToString(),
+            providerCustomerId,
             billingEvent.Units,
             billingEvent.OccurredAtUtc,
             billingEventId,
             billingEvent.CorrelationId,
-            billingEvent.Attributes);
+            metadata);
 
         await buffer.EnqueueAsync(meterEvent, cancellationToken).ConfigureAwait(false);
     }
 
-    private static string GetBillingEventId(KernelBillingEvent billingEvent)
+    private static string GetRequiredAttribute(KernelBillingEvent billingEvent, string key)
     {
-        if (billingEvent.Attributes.TryGetValue(BillingEventIdAttributeKey, out var billingEventId)
-            && !string.IsNullOrWhiteSpace(billingEventId))
+        if (billingEvent.Attributes.TryGetValue(key, out var value)
+            && !string.IsNullOrWhiteSpace(value))
         {
-            return billingEventId;
+            return value;
         }
 
         throw new ArgumentException(
-            $"Billing event attributes must include a non-empty '{BillingEventIdAttributeKey}' value for provider idempotency.",
+            $"Billing event attributes must include a non-empty '{key}' value for provider metered billing.",
             nameof(billingEvent));
+    }
+
+    private static Dictionary<string, string> CreateMeterMetadata(IReadOnlyDictionary<string, string> attributes)
+    {
+        var metadata = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var attribute in attributes)
+        {
+            if (StringComparer.Ordinal.Equals(attribute.Key, BillingEventIdAttributeKey)
+                || StringComparer.Ordinal.Equals(attribute.Key, ProviderCustomerIdAttributeKey))
+            {
+                continue;
+            }
+
+            metadata[attribute.Key] = attribute.Value;
+        }
+
+        StripeMetadataPolicy.ValidateOutboundMetadata(metadata, "billingEvent.Attributes");
+        return metadata;
     }
 
     private static void ValidateUnits(long units)

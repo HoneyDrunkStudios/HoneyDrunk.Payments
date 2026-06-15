@@ -63,6 +63,18 @@ internal static class StripeMetadataPolicy
         string parameterName) =>
         _ = CopyOutboundMetadata(metadata, parameterName);
 
+    public static void ValidateProviderReferenceValue(string value, string parameterName)
+    {
+        ArgumentNullException.ThrowIfNull(value, parameterName);
+
+        if (!IsSafeProviderMetadataValue(value))
+        {
+            throw new ArgumentException(
+                $"Provider reference values cannot exceed {MaxMetadataValueLength} characters or contain sensitive-looking provider data.",
+                parameterName);
+        }
+    }
+
     public static Dictionary<string, string> CopyInboundMetadata(IReadOnlyDictionary<string, string>? metadata)
     {
         var copy = new Dictionary<string, string>(StringComparer.Ordinal);

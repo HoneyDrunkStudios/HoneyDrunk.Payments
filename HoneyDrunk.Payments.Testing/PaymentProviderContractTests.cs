@@ -11,6 +11,11 @@ public abstract class PaymentProviderContractTests
     public const string BillingEventIdAttributeKey = "billing_event_id";
 
     /// <summary>
+    /// Attribute key that carries the provider customer mapping used for metered billing.
+    /// </summary>
+    public const string ProviderCustomerIdAttributeKey = "provider_customer_id";
+
+    /// <summary>
     /// Verifies that the provider creates checkout sessions with normalized payment snapshots.
     /// </summary>
     /// <returns>A task that completes when the assertion run finishes.</returns>
@@ -131,6 +136,7 @@ public abstract class PaymentProviderContractTests
         var billingEvent = fixture.CreateBillingEvent(new Dictionary<string, string>(StringComparer.Ordinal)
         {
             [BillingEventIdAttributeKey] = "contract-billing-event-1",
+            [ProviderCustomerIdAttributeKey] = fixture.Expectations.ProviderCustomerId,
         });
 
         await fixture.BillingEventEmitter.EmitAsync(billingEvent, CancellationToken.None);
@@ -143,12 +149,33 @@ public abstract class PaymentProviderContractTests
     protected async Task AssertProviderRejectsMeterEventWithoutPerEventIdempotencyAsync()
     {
         var fixture = CreateFixture();
-        var billingEvent = fixture.CreateBillingEvent(new Dictionary<string, string>(StringComparer.Ordinal));
+        var billingEvent = fixture.CreateBillingEvent(new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [ProviderCustomerIdAttributeKey] = fixture.Expectations.ProviderCustomerId,
+        });
 
         var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
             await fixture.BillingEventEmitter.EmitAsync(billingEvent, CancellationToken.None));
 
         Assert.Contains(BillingEventIdAttributeKey, exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Verifies that the provider rejects meter events that omit provider customer mapping.
+    /// </summary>
+    /// <returns>A task that completes when the assertion run finishes.</returns>
+    protected async Task AssertProviderRejectsMeterEventWithoutProviderCustomerIdAsync()
+    {
+        var fixture = CreateFixture();
+        var billingEvent = fixture.CreateBillingEvent(new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [BillingEventIdAttributeKey] = "contract-billing-event-1",
+        });
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await fixture.BillingEventEmitter.EmitAsync(billingEvent, CancellationToken.None));
+
+        Assert.Contains(ProviderCustomerIdAttributeKey, exception.Message, StringComparison.Ordinal);
     }
 
     /// <summary>

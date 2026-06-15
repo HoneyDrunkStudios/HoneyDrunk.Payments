@@ -4,7 +4,7 @@ namespace HoneyDrunk.Payments.Stripe;
 /// Stripe meter event payload captured before SDK transport.
 /// </summary>
 /// <param name="EventName">Stripe meter event name.</param>
-/// <param name="CustomerKey">Tenant/customer key used by the Stripe bridge.</param>
+/// <param name="CustomerKey">Stripe customer id or configured Stripe meter customer key.</param>
 /// <param name="Units">Usage units.</param>
 /// <param name="OccurredAtUtc">UTC timestamp when the metered usage occurred.</param>
 /// <param name="IdempotencyKey">Per-event idempotency key used for Stripe deduplication.</param>

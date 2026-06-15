@@ -73,6 +73,14 @@ public sealed class StripePaymentProviderContractTests : PaymentProviderContract
     public Task ProviderRejectsMeterEventWithoutPerEventIdempotency() =>
         AssertProviderRejectsMeterEventWithoutPerEventIdempotencyAsync();
 
+    /// <summary>
+    /// Verifies that Stripe rejects meter events that omit provider customer mapping.
+    /// </summary>
+    /// <returns>A task that completes when the assertion run finishes.</returns>
+    [Fact]
+    public Task ProviderRejectsMeterEventWithoutProviderCustomerId() =>
+        AssertProviderRejectsMeterEventWithoutProviderCustomerIdAsync();
+
     protected override PaymentProviderContractFixture CreateFixture() => new StripeContractFixture();
 
     private sealed class StripeContractFixture : PaymentProviderContractFixture

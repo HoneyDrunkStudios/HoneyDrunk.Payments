@@ -15,8 +15,14 @@
   mapping keys before returning subscription, webhook, and invoice snapshots.
 - Require per-event meter idempotency through the `billing_event_id` billing
   attribute instead of trace correlation.
+- Require explicit provider customer mapping through the `provider_customer_id`
+  billing attribute instead of deriving Stripe meter `customer_key` values from
+  HoneyDrunk tenant ids.
 - Require Kernel billing events to enqueue through `IStripeMeterEventBuffer`,
   with `StripeMeterEventReplayDispatcher` owning replay to Stripe transport.
+- Classify Stripe meter events with stale or future timestamps as permanent
+  failures so durable buffers can dead-letter or reconcile instead of retrying
+  unchanged events indefinitely.
 - Resolve Stripe API keys through `IStripeApiKeyProvider` instead of storing raw
   API-key strings in Payments client state.
 - Resolve Stripe webhook endpoint secrets through `IStripeWebhookSecretProvider`

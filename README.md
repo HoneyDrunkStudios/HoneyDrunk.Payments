@@ -16,7 +16,8 @@ instead of carrying Stripe SDK code in product repos.
 Provider packages should keep SDKs and provider-specific secrets behind their
 own composition boundary. For Stripe, hosts provide `IStripeApiKeyProvider`
 and `IStripeWebhookSecretProvider` backed by Vault / `ISecretStore`, then pass
-per-event billing idempotency through the `billing_event_id` billing attribute.
+per-event billing idempotency through the `billing_event_id` billing attribute
+and the persisted provider customer mapping through `provider_customer_id`.
 Kernel `IBillingEventEmitter` composition also requires an
 `IStripeMeterEventBuffer`; product hosts own the durable at-least-once store and
 use `StripeMeterEventReplayDispatcher` to drain accepted events to Stripe.
@@ -30,6 +31,11 @@ harness and own the concrete
 invoice reconciliation, and metered-billing behavior are checked through the
 same abstraction contracts for Stripe and future providers. Production projects
 must not reference this test-scoped helper.
+
+Metered usage should not derive provider customer identity from HoneyDrunk
+tenant ids. Product hosts persist the provider customer id returned by checkout,
+subscription reads, or invoice reconciliation, then pass that provider mapping
+to the selected Payments provider at the composition boundary.
 
 Payments pins `HoneyDrunk.Kernel.Abstractions` to `0.7.0`, the current
 Architecture baseline used by Grid Review. The billing contracts consumed here

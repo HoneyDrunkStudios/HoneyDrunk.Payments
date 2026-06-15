@@ -54,6 +54,7 @@ public sealed class StripeBillingClientTests
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 [StripeBillingEventEmitter.BillingEventIdAttributeKey] = "bill-event-1",
+                [StripeBillingEventEmitter.ProviderCustomerIdAttributeKey] = "cus_test",
                 ["project_id"] = "project-1",
             });
 
@@ -61,12 +62,14 @@ public sealed class StripeBillingClientTests
 
         Assert.NotNull(buffer.LastEvent);
         Assert.Equal("payments.submission.accepted.sms", buffer.LastEvent.EventName);
-        Assert.Equal(tenantId.ToString(), buffer.LastEvent.CustomerKey);
+        Assert.Equal("cus_test", buffer.LastEvent.CustomerKey);
         Assert.Equal(2, buffer.LastEvent.Units);
         Assert.Equal(occurredAtUtc, buffer.LastEvent.OccurredAtUtc);
         Assert.Equal("bill-event-1", buffer.LastEvent.IdempotencyKey);
         Assert.Equal("corr-1", buffer.LastEvent.CorrelationId);
         Assert.Equal("project-1", buffer.LastEvent.Metadata["project_id"]);
+        Assert.False(buffer.LastEvent.Metadata.ContainsKey(StripeBillingEventEmitter.BillingEventIdAttributeKey));
+        Assert.False(buffer.LastEvent.Metadata.ContainsKey(StripeBillingEventEmitter.ProviderCustomerIdAttributeKey));
     }
 
     [Fact]
@@ -118,13 +121,65 @@ public sealed class StripeBillingClientTests
             Units: 1,
             DateTimeOffset.UtcNow,
             "corr-1",
-            new Dictionary<string, string>(StringComparer.Ordinal));
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [StripeBillingEventEmitter.ProviderCustomerIdAttributeKey] = "cus_test",
+            });
 
         var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
             await adapter.EmitAsync(billingEvent, CancellationToken.None));
 
         Assert.Equal("billingEvent", exception.ParamName);
         Assert.Contains(StripeBillingEventEmitter.BillingEventIdAttributeKey, exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task EmitAsyncRequiresProviderCustomerIdAttribute()
+    {
+        var adapter = new StripeBillingEventEmitter(new CapturingStripeMeterEventBuffer());
+        var billingEvent = new BillingEvent(
+            new TenantId("01ARZ3NDEKTSV4RRFFQ69G5FAV"),
+            "payments.submission.accepted",
+            "email",
+            Units: 1,
+            DateTimeOffset.UtcNow,
+            "corr-1",
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [StripeBillingEventEmitter.BillingEventIdAttributeKey] = "bill-event-1",
+            });
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await adapter.EmitAsync(billingEvent, CancellationToken.None));
+
+        Assert.Equal("billingEvent", exception.ParamName);
+        Assert.Contains(StripeBillingEventEmitter.ProviderCustomerIdAttributeKey, exception.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("tok_test_123")]
+    [InlineData("billing@example.com")]
+    public async Task EmitAsyncRejectsSensitiveProviderCustomerIdAttribute(string providerCustomerId)
+    {
+        var adapter = new StripeBillingEventEmitter(new CapturingStripeMeterEventBuffer());
+        var billingEvent = new BillingEvent(
+            new TenantId("01ARZ3NDEKTSV4RRFFQ69G5FAV"),
+            "payments.submission.accepted",
+            "email",
+            Units: 1,
+            DateTimeOffset.UtcNow,
+            "corr-1",
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [StripeBillingEventEmitter.BillingEventIdAttributeKey] = "bill-event-1",
+                [StripeBillingEventEmitter.ProviderCustomerIdAttributeKey] = providerCustomerId,
+            });
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await adapter.EmitAsync(billingEvent, CancellationToken.None));
+
+        Assert.Equal("billingEvent.Attributes", exception.ParamName);
+        Assert.Contains("sensitive", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -141,6 +196,7 @@ public sealed class StripeBillingClientTests
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 [StripeBillingEventEmitter.BillingEventIdAttributeKey] = "bill-event-1",
+                [StripeBillingEventEmitter.ProviderCustomerIdAttributeKey] = "cus_test",
                 ["api_token"] = "secret",
             });
 
@@ -167,6 +223,7 @@ public sealed class StripeBillingClientTests
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 [StripeBillingEventEmitter.BillingEventIdAttributeKey] = "bill-event-1",
+                [StripeBillingEventEmitter.ProviderCustomerIdAttributeKey] = "cus_test",
                 ["provider_reference"] = sensitiveValue,
             });
 
@@ -184,7 +241,7 @@ public sealed class StripeBillingClientTests
         var dispatcher = new StripeMeterEventReplayDispatcher(client);
         var meterEvent = new StripeMeterEvent(
             "payments.submission.accepted.email",
-            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "cus_test",
             1,
             DateTimeOffset.UtcNow,
             "bill-event-1",
@@ -200,11 +257,11 @@ public sealed class StripeBillingClientTests
     public async Task BillingClientRecordsMeterEventsThroughStripeSdkPayload()
     {
         var sdk = new CapturingStripeBillingSdk();
-        var client = new StripeBillingClient(sdk);
+        var client = new StripeBillingClient(sdk, timeProvider: new FixedTimeProvider(new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero)));
         var occurredAtUtc = new DateTimeOffset(2026, 6, 14, 12, 30, 0, TimeSpan.Zero);
         var meterEvent = new StripeMeterEvent(
             "payments.submission.accepted.email",
-            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "cus_test",
             3,
             occurredAtUtc,
             "bill-event-1",
@@ -221,7 +278,7 @@ public sealed class StripeBillingClientTests
         Assert.Equal("bill-event-1", sdk.LastMeterEventOptions.Identifier);
         Assert.Equal(occurredAtUtc.UtcDateTime, sdk.LastMeterEventOptions.Timestamp);
         Assert.Equal("bill-event-1", sdk.LastIdempotencyKey);
-        Assert.Equal("01ARZ3NDEKTSV4RRFFQ69G5FAV", sdk.LastMeterEventOptions.Payload[StripeBillingClient.MeterCustomerPayloadKey]);
+        Assert.Equal("cus_test", sdk.LastMeterEventOptions.Payload[StripeBillingClient.MeterCustomerPayloadKey]);
         Assert.Equal("3", sdk.LastMeterEventOptions.Payload[StripeBillingClient.MeterValuePayloadKey]);
         Assert.Equal("bill-event-1", sdk.LastMeterEventOptions.Payload[StripeBillingClient.MeterEventIdPayloadKey]);
         Assert.Equal("corr-1", sdk.LastMeterEventOptions.Payload[StripeBillingClient.MeterCorrelationPayloadKey]);
@@ -249,6 +306,74 @@ public sealed class StripeBillingClientTests
 
         Assert.Equal("meterEvent.Metadata", exception.ParamName);
         Assert.Contains("custom entries", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("tok_test_123")]
+    [InlineData("billing@example.com")]
+    public async Task BillingClientRejectsSensitiveMeterCustomerKey(string customerKey)
+    {
+        var client = new StripeBillingClient(new CapturingStripeBillingSdk());
+        var meterEvent = new StripeMeterEvent(
+            "payments.submission.accepted.email",
+            customerKey,
+            3,
+            DateTimeOffset.UtcNow,
+            "bill-event-1",
+            "corr-1",
+            new Dictionary<string, string>(StringComparer.Ordinal));
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await client.RecordMeterEventAsync(meterEvent, CancellationToken.None));
+
+        Assert.Equal("meterEvent.CustomerKey", exception.ParamName);
+        Assert.Contains("sensitive", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task BillingClientRejectsStaleMeterEventAsPermanentFailure()
+    {
+        var sdk = new CapturingStripeBillingSdk();
+        var now = new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero);
+        var client = new StripeBillingClient(sdk, timeProvider: new FixedTimeProvider(now));
+        var meterEvent = new StripeMeterEvent(
+            "payments.submission.accepted.email",
+            "cus_test",
+            3,
+            now.Subtract(StripeBillingClient.MaxMeterEventAge).AddSeconds(-1),
+            "bill-event-1",
+            "corr-1",
+            new Dictionary<string, string>(StringComparer.Ordinal));
+
+        var exception = await Assert.ThrowsAsync<StripeMeterEventPermanentFailureException>(async () =>
+            await client.RecordMeterEventAsync(meterEvent, CancellationToken.None));
+
+        Assert.Equal(StripeMeterEventPermanentFailureReason.TimestampTooOld, exception.Reason);
+        Assert.Same(meterEvent, exception.MeterEvent);
+        Assert.Null(sdk.LastMeterEventOptions);
+    }
+
+    [Fact]
+    public async Task BillingClientRejectsFutureMeterEventAsPermanentFailure()
+    {
+        var sdk = new CapturingStripeBillingSdk();
+        var now = new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero);
+        var client = new StripeBillingClient(sdk, timeProvider: new FixedTimeProvider(now));
+        var meterEvent = new StripeMeterEvent(
+            "payments.submission.accepted.email",
+            "cus_test",
+            3,
+            now.Add(StripeBillingClient.MaxMeterEventFutureSkew).AddSeconds(1),
+            "bill-event-1",
+            "corr-1",
+            new Dictionary<string, string>(StringComparer.Ordinal));
+
+        var exception = await Assert.ThrowsAsync<StripeMeterEventPermanentFailureException>(async () =>
+            await client.RecordMeterEventAsync(meterEvent, CancellationToken.None));
+
+        Assert.Equal(StripeMeterEventPermanentFailureReason.TimestampTooNew, exception.Reason);
+        Assert.Same(meterEvent, exception.MeterEvent);
+        Assert.Null(sdk.LastMeterEventOptions);
     }
 
     [Fact]
@@ -964,6 +1089,11 @@ public sealed class StripeBillingClientTests
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(webhookSecret);
         }
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
     }
 
     private sealed class CapturingStripeBillingSdk : IStripeBillingSdk

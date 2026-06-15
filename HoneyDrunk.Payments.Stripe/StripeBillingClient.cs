@@ -26,10 +26,14 @@ public sealed class StripeBillingClient :
     internal const string MeterEventIdPayloadKey = "billing_event_id";
     internal const string MeterCorrelationPayloadKey = "correlation_id";
 
+    internal static readonly TimeSpan MaxMeterEventAge = TimeSpan.FromDays(35);
+    internal static readonly TimeSpan MaxMeterEventFutureSkew = TimeSpan.FromMinutes(5);
+
     private const string ProviderName = PaymentProviderNames.Stripe;
 
     private readonly IStripeBillingSdk sdk;
     private readonly IStripeWebhookSecretProvider? webhookSecretProvider;
+    private readonly TimeProvider timeProvider;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="StripeBillingClient"/> class.
@@ -43,10 +47,14 @@ public sealed class StripeBillingClient :
     {
     }
 
-    internal StripeBillingClient(IStripeBillingSdk sdk, IStripeWebhookSecretProvider? webhookSecretProvider = null)
+    internal StripeBillingClient(
+        IStripeBillingSdk sdk,
+        IStripeWebhookSecretProvider? webhookSecretProvider = null,
+        TimeProvider? timeProvider = null)
     {
         this.sdk = sdk ?? throw new ArgumentNullException(nameof(sdk));
         this.webhookSecretProvider = webhookSecretProvider;
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <inheritdoc />
@@ -128,11 +136,14 @@ public sealed class StripeBillingClient :
         ArgumentException.ThrowIfNullOrWhiteSpace(meterEvent.CustomerKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(meterEvent.IdempotencyKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(meterEvent.CorrelationId);
+        StripeMetadataPolicy.ValidateProviderReferenceValue(meterEvent.CustomerKey, "meterEvent.CustomerKey");
 
         if (meterEvent.Units <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(meterEvent), meterEvent.Units, "Meter event units must be positive.");
         }
+
+        ValidateMeterEventTimestamp(meterEvent, timeProvider.GetUtcNow());
 
         var payload = StripeMetadataPolicy.CopyOutboundMetadata(meterEvent.Metadata, "meterEvent.Metadata");
         payload[MeterCustomerPayloadKey] = meterEvent.CustomerKey;
@@ -316,6 +327,27 @@ public sealed class StripeBillingClient :
             TryGetMetadata(lookupMetadata, ProjectMetadataKey),
             TryGetMetadata(lookupMetadata, TierMetadataKey),
             metadata);
+    }
+
+    private static void ValidateMeterEventTimestamp(StripeMeterEvent meterEvent, DateTimeOffset now)
+    {
+        var oldestAccepted = now.Subtract(MaxMeterEventAge);
+        if (meterEvent.OccurredAtUtc < oldestAccepted)
+        {
+            throw new StripeMeterEventPermanentFailureException(
+                StripeMeterEventPermanentFailureReason.TimestampTooOld,
+                meterEvent,
+                "Stripe meter event timestamp is older than the accepted replay window and should be dead-lettered or reconciled instead of retried unchanged.");
+        }
+
+        var newestAccepted = now.Add(MaxMeterEventFutureSkew);
+        if (meterEvent.OccurredAtUtc > newestAccepted)
+        {
+            throw new StripeMeterEventPermanentFailureException(
+                StripeMeterEventPermanentFailureReason.TimestampTooNew,
+                meterEvent,
+                "Stripe meter event timestamp is too far in the future and should be dead-lettered or retried after clock reconciliation instead of sent unchanged.");
+        }
     }
 
     private static void ValidateCheckoutRequest(StripeCheckoutSessionRequest request)

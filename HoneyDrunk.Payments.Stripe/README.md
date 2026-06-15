@@ -29,9 +29,21 @@ Meter events publish `customer_key`, `value`, `billing_event_id`, and
 set `customer_mapping.event_payload_key` to `customer_key`, and the usage value
 mapping must read `value`. Kernel `BillingEvent` records must include
 a non-empty `billing_event_id` attribute; Payments uses it as both the Stripe
-meter identifier and API idempotency key. `correlation_id` remains trace metadata
-only. The durable buffer should dedupe on the same `billing_event_id` and replay
-at least once until Stripe accepts the event.
+meter identifier and API idempotency key. Kernel `BillingEvent` records must also
+include a non-empty `provider_customer_id` attribute containing the persisted
+Stripe customer id, usually `cus_...`, or another configured Stripe meter
+customer key. Payments copies that value into `customer_key`; it does not derive
+Stripe customer identity from HoneyDrunk tenant ids. `billing_event_id` and
+`provider_customer_id` are routing fields and are not copied into arbitrary
+Stripe metadata. `correlation_id` remains trace metadata only. The durable buffer
+should dedupe on the same `billing_event_id` and replay at least once until
+Stripe accepts the event.
+
+Replay preserves original usage timestamps. `StripeBillingClient` rejects meter
+events older than 35 days or more than five minutes in the future with
+`StripeMeterEventPermanentFailureException`. Buffers should treat that exception
+as a dead-letter/reconciliation signal rather than retrying the same event
+unchanged.
 
 Checkout session creation enables Stripe Tax with `automatic_tax.enabled=true`.
 Stripe requests are pinned to API version `2026-05-27.dahlia`; changing that pin
