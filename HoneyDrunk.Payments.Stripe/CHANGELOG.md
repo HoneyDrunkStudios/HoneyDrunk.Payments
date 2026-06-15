@@ -11,6 +11,10 @@
 - Pin Stripe API requests to Stripe API version `2026-05-27.dahlia`.
 - Enforce outbound Stripe metadata bounds and sensitive-key rejection before
   Checkout and meter-event provider calls.
+- Reject sensitive-looking outbound provider-bound identifiers before Stripe
+  transport, including customer ids, price ids, idempotency keys, meter event
+  identifiers, correlation ids, subscription ids, invoice ids, and cancellation
+  comments.
 - Strip sensitive inbound Stripe metadata and allow only known-safe product
   mapping keys before returning subscription, webhook, and invoice snapshots.
 - Require per-event meter idempotency through the `billing_event_id` billing

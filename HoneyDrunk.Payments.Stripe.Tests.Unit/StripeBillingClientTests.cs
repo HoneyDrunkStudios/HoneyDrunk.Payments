@@ -182,6 +182,58 @@ public sealed class StripeBillingClientTests
         Assert.Contains("sensitive", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("whsec_test")]
+    [InlineData("billing@example.com")]
+    public async Task EmitAsyncRejectsSensitiveBillingEventIdAttribute(string billingEventId)
+    {
+        var adapter = new StripeBillingEventEmitter(new CapturingStripeMeterEventBuffer());
+        var billingEvent = new BillingEvent(
+            new TenantId("01ARZ3NDEKTSV4RRFFQ69G5FAV"),
+            "payments.submission.accepted",
+            "email",
+            Units: 1,
+            DateTimeOffset.UtcNow,
+            "corr-1",
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [StripeBillingEventEmitter.BillingEventIdAttributeKey] = billingEventId,
+                [StripeBillingEventEmitter.ProviderCustomerIdAttributeKey] = "cus_test",
+            });
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await adapter.EmitAsync(billingEvent, CancellationToken.None));
+
+        Assert.Equal("billingEvent.Attributes", exception.ParamName);
+        Assert.Contains("sensitive", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("contains-token-fragment")]
+    [InlineData("billing@example.com")]
+    public async Task EmitAsyncRejectsSensitiveBillingCorrelationId(string correlationId)
+    {
+        var adapter = new StripeBillingEventEmitter(new CapturingStripeMeterEventBuffer());
+        var billingEvent = new BillingEvent(
+            new TenantId("01ARZ3NDEKTSV4RRFFQ69G5FAV"),
+            "payments.submission.accepted",
+            "email",
+            Units: 1,
+            DateTimeOffset.UtcNow,
+            correlationId,
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [StripeBillingEventEmitter.BillingEventIdAttributeKey] = "bill-event-1",
+                [StripeBillingEventEmitter.ProviderCustomerIdAttributeKey] = "cus_test",
+            });
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await adapter.EmitAsync(billingEvent, CancellationToken.None));
+
+        Assert.Equal("billingEvent.CorrelationId", exception.ParamName);
+        Assert.Contains("sensitive", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public async Task EmitAsyncRejectsSensitiveBillingAttributeKeys()
     {
@@ -330,6 +382,32 @@ public sealed class StripeBillingClientTests
         Assert.Contains("sensitive", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("meterEvent.IdempotencyKey", "cus_test", "sk_test_123", "corr-1")]
+    [InlineData("meterEvent.CorrelationId", "cus_test", "bill-event-1", "contains-secret-fragment")]
+    public async Task BillingClientRejectsSensitiveMeterIdentifiers(
+        string expectedParameterName,
+        string customerKey,
+        string idempotencyKey,
+        string correlationId)
+    {
+        var client = new StripeBillingClient(new CapturingStripeBillingSdk());
+        var meterEvent = new StripeMeterEvent(
+            "payments.submission.accepted.email",
+            customerKey,
+            3,
+            DateTimeOffset.UtcNow,
+            idempotencyKey,
+            correlationId,
+            new Dictionary<string, string>(StringComparer.Ordinal));
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await client.RecordMeterEventAsync(meterEvent, CancellationToken.None));
+
+        Assert.Equal(expectedParameterName, exception.ParamName);
+        Assert.Contains("sensitive", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public async Task BillingClientRejectsStaleMeterEventAsPermanentFailure()
     {
@@ -444,6 +522,35 @@ public sealed class StripeBillingClientTests
             await client.CreateCheckoutSessionAsync(request));
 
         Assert.Equal("request.Metadata", exception.ParamName);
+        Assert.Contains("sensitive", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("request.StripeCustomerId", "price_starter", "checkout-1", "billing@example.com")]
+    [InlineData("request.IdempotencyKey", "price_starter", "tok_test_123", null)]
+    [InlineData("request.StripePriceId", "price_secret", "checkout-1", null)]
+    public async Task BillingClientRejectsSensitiveCheckoutProviderIdentifiers(
+        string expectedParameterName,
+        string stripePriceId,
+        string idempotencyKey,
+        string? stripeCustomerId)
+    {
+        var client = new StripeBillingClient(new CapturingStripeBillingSdk());
+        var request = new StripeCheckoutSessionRequest(
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "project-1",
+            "Starter",
+            stripePriceId,
+            "https://payments.test/success",
+            "https://payments.test/cancel",
+            idempotencyKey,
+            StripeCustomerId: stripeCustomerId,
+            CustomerEmail: stripeCustomerId is null ? "billing@example.com" : null);
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await client.CreateCheckoutSessionAsync(request));
+
+        Assert.Equal(expectedParameterName, exception.ParamName);
         Assert.Contains("sensitive", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -583,6 +690,31 @@ public sealed class StripeBillingClientTests
         Assert.Equal("cancel-1", sdk.LastIdempotencyKey);
     }
 
+    [Theory]
+    [InlineData("request.SubscriptionId", "sub_secret", "cancel-1", "customer request")]
+    [InlineData("request.IdempotencyKey", "sub_test", "whsec_test", "customer request")]
+    [InlineData("request.Reason", "sub_test", "cancel-1", "email requested")]
+    public async Task BillingClientRejectsSensitiveCancellationProviderIdentifiers(
+        string expectedParameterName,
+        string subscriptionId,
+        string idempotencyKey,
+        string reason)
+    {
+        var client = new StripeBillingClient(new CapturingStripeBillingSdk());
+        var request = new StripeSubscriptionCancellationRequest(
+            subscriptionId,
+            InvoiceNow: true,
+            Prorate: false,
+            Reason: reason,
+            IdempotencyKey: idempotencyKey);
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await client.CancelSubscriptionAsync(request));
+
+        Assert.Equal(expectedParameterName, exception.ParamName);
+        Assert.Contains("sensitive", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public async Task BillingClientGetsSubscriptionThroughProviderNeutralContract()
     {
@@ -616,6 +748,20 @@ public sealed class StripeBillingClientTests
         Assert.Equal("project-1", snapshot.ProjectId);
         Assert.Equal(createdAt, snapshot.CreatedAt);
         Assert.Equal("in_test", snapshot.LatestInvoiceId);
+    }
+
+    [Theory]
+    [InlineData("sk_test_123")]
+    [InlineData("billing@example.com")]
+    public async Task BillingClientRejectsSensitiveSubscriptionLookupId(string subscriptionId)
+    {
+        IPaymentSubscriptionLifecycleClient client = new StripeBillingClient(new CapturingStripeBillingSdk());
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await client.GetSubscriptionAsync(subscriptionId, CancellationToken.None));
+
+        Assert.Equal("subscriptionId", exception.ParamName);
+        Assert.Contains("sensitive", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -906,6 +1052,20 @@ public sealed class StripeBillingClientTests
         Assert.Equal("01ARZ3NDEKTSV4RRFFQ69G5FAV", snapshot.TenantId);
         Assert.Equal("project-1", snapshot.ProjectId);
         Assert.Equal("stripe", snapshot.Metadata["invoice_source"]);
+    }
+
+    [Theory]
+    [InlineData("tok_test_123")]
+    [InlineData("billing@example.com")]
+    public async Task BillingClientRejectsSensitiveInvoiceLookupId(string invoiceId)
+    {
+        IPaymentInvoiceReconciliationClient client = new StripeBillingClient(new CapturingStripeBillingSdk());
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await client.ReconcileInvoiceAsync(invoiceId, CancellationToken.None));
+
+        Assert.Equal("invoiceId", exception.ParamName);
+        Assert.Contains("sensitive", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

@@ -75,6 +75,16 @@ internal static class StripeMetadataPolicy
         }
     }
 
+    public static void ValidateOptionalProviderReferenceValue(string? value, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        ValidateProviderReferenceValue(value, parameterName);
+    }
+
     public static Dictionary<string, string> CopyInboundMetadata(IReadOnlyDictionary<string, string>? metadata)
     {
         var copy = new Dictionary<string, string>(StringComparer.Ordinal);

@@ -32,7 +32,9 @@ public sealed class StripeBillingEventEmitter(IStripeMeterEventBuffer buffer) : 
         ValidateUnits(billingEvent.Units);
         var billingEventId = GetRequiredAttribute(billingEvent, BillingEventIdAttributeKey);
         var providerCustomerId = GetRequiredAttribute(billingEvent, ProviderCustomerIdAttributeKey);
+        StripeMetadataPolicy.ValidateProviderReferenceValue(billingEventId, "billingEvent.Attributes");
         StripeMetadataPolicy.ValidateProviderReferenceValue(providerCustomerId, "billingEvent.Attributes");
+        StripeMetadataPolicy.ValidateProviderReferenceValue(billingEvent.CorrelationId, "billingEvent.CorrelationId");
         var metadata = CreateMeterMetadata(billingEvent.Attributes);
 
         var meterEvent = new StripeMeterEvent(

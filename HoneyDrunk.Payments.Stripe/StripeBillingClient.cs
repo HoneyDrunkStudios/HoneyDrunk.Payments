@@ -137,6 +137,8 @@ public sealed class StripeBillingClient :
         ArgumentException.ThrowIfNullOrWhiteSpace(meterEvent.IdempotencyKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(meterEvent.CorrelationId);
         StripeMetadataPolicy.ValidateProviderReferenceValue(meterEvent.CustomerKey, "meterEvent.CustomerKey");
+        StripeMetadataPolicy.ValidateProviderReferenceValue(meterEvent.IdempotencyKey, "meterEvent.IdempotencyKey");
+        StripeMetadataPolicy.ValidateProviderReferenceValue(meterEvent.CorrelationId, "meterEvent.CorrelationId");
 
         if (meterEvent.Units <= 0)
         {
@@ -229,6 +231,7 @@ public sealed class StripeBillingClient :
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(subscriptionId);
+        StripeMetadataPolicy.ValidateProviderReferenceValue(subscriptionId, nameof(subscriptionId));
 
         var subscription = await sdk
             .GetSubscriptionAsync(subscriptionId, cancellationToken)
@@ -244,6 +247,9 @@ public sealed class StripeBillingClient :
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.SubscriptionId);
+        StripeMetadataPolicy.ValidateProviderReferenceValue(request.SubscriptionId, "request.SubscriptionId");
+        StripeMetadataPolicy.ValidateOptionalProviderReferenceValue(request.IdempotencyKey, "request.IdempotencyKey");
+        StripeMetadataPolicy.ValidateOptionalProviderReferenceValue(request.Reason, "request.Reason");
 
         var options = new SubscriptionCancelOptions
         {
@@ -300,6 +306,7 @@ public sealed class StripeBillingClient :
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(invoiceId);
+        StripeMetadataPolicy.ValidateProviderReferenceValue(invoiceId, nameof(invoiceId));
 
         var invoice = await sdk
             .GetInvoiceAsync(invoiceId, cancellationToken)
@@ -359,6 +366,9 @@ public sealed class StripeBillingClient :
         ArgumentException.ThrowIfNullOrWhiteSpace(request.SuccessUrl);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.CancelUrl);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.IdempotencyKey);
+        StripeMetadataPolicy.ValidateProviderReferenceValue(request.StripePriceId, "request.StripePriceId");
+        StripeMetadataPolicy.ValidateProviderReferenceValue(request.IdempotencyKey, "request.IdempotencyKey");
+        StripeMetadataPolicy.ValidateOptionalProviderReferenceValue(request.StripeCustomerId, "request.StripeCustomerId");
 
         if (string.IsNullOrWhiteSpace(request.StripeCustomerId)
             && string.IsNullOrWhiteSpace(request.CustomerEmail))

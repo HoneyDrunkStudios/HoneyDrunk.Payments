@@ -50,6 +50,10 @@ Stripe requests are pinned to API version `2026-05-27.dahlia`; changing that pin
 is a deliberate Payments provider upgrade.
 
 Outbound caller metadata is bounded and rejected when keys look sensitive.
+Outbound provider-bound identifiers, including Stripe customer ids, price ids,
+idempotency keys, meter identifiers, correlation ids, subscription ids, invoice
+ids, and cancellation comments, reject sensitive-looking values before Stripe
+transport.
 Inbound Stripe metadata is sanitized before subscription, webhook, and invoice
 snapshots cross the provider-neutral boundary. Only known-safe keys currently
 used for product mapping (`payments_tenant_id`, `project_id`, `tier_name`, and
