@@ -270,7 +270,7 @@ public sealed class StripeBillingClient :
         var stripeEvent = sdk.ConstructEvent(payload, signatureHeader, webhookSecret);
         var dataObject = stripeEvent.Data?.Object;
         var metadata = dataObject is IHasMetadata metadataObject
-            ? CopyMetadata(metadataObject.Metadata)
+            ? CopyInboundMetadata(metadataObject.Metadata)
             : new Dictionary<string, string>(StringComparer.Ordinal);
 
         return new StripeWebhookEventSnapshot(
@@ -294,8 +294,8 @@ public sealed class StripeBillingClient :
             .GetInvoiceAsync(invoiceId, cancellationToken)
             .ConfigureAwait(false);
 
-        var metadata = CopyMetadata(invoice.Metadata);
-        var subscriptionMetadata = CopyMetadata(invoice.Parent?.SubscriptionDetails?.Metadata);
+        var metadata = CopyInboundMetadata(invoice.Metadata);
+        var subscriptionMetadata = CopyInboundMetadata(invoice.Parent?.SubscriptionDetails?.Metadata);
         var lookupMetadata = MergeMetadata(subscriptionMetadata, metadata);
 
         return new StripeInvoiceReconciliationSnapshot(
@@ -346,7 +346,7 @@ public sealed class StripeBillingClient :
     {
         ArgumentNullException.ThrowIfNull(subscription);
 
-        var metadata = CopyMetadata(subscription.Metadata);
+        var metadata = CopyInboundMetadata(subscription.Metadata);
         return new StripeSubscriptionSnapshot(
             subscription.Id,
             subscription.CustomerId,
@@ -433,16 +433,14 @@ public sealed class StripeBillingClient :
         return copy;
     }
 
-    private static Dictionary<string, string> CopyMetadata(IReadOnlyDictionary<string, string>? metadata) =>
-        metadata is null
-            ? new Dictionary<string, string>(StringComparer.Ordinal)
-            : new Dictionary<string, string>(metadata, StringComparer.Ordinal);
+    private static Dictionary<string, string> CopyInboundMetadata(IReadOnlyDictionary<string, string>? metadata) =>
+        StripeMetadataPolicy.CopyInboundMetadata(metadata);
 
     private static Dictionary<string, string> MergeMetadata(
         IReadOnlyDictionary<string, string> primary,
         IReadOnlyDictionary<string, string> overrides)
     {
-        var merged = CopyMetadata(primary);
+        var merged = CopyInboundMetadata(primary);
         foreach (var item in overrides)
         {
             merged[item.Key] = item.Value;

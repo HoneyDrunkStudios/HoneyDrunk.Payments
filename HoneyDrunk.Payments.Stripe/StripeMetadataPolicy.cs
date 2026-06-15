@@ -55,6 +55,30 @@ internal static class StripeMetadataPolicy
         string parameterName) =>
         _ = CopyOutboundMetadata(metadata, parameterName);
 
+    public static Dictionary<string, string> CopyInboundMetadata(IReadOnlyDictionary<string, string>? metadata)
+    {
+        var copy = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (metadata is null)
+        {
+            return copy;
+        }
+
+        foreach (var (key, value) in metadata)
+        {
+            if (copy.Count >= MaxCustomMetadataEntries)
+            {
+                break;
+            }
+
+            if (IsSafeMetadataKey(key) && IsSafeMetadataValue(value))
+            {
+                copy[key] = value;
+            }
+        }
+
+        return copy;
+    }
+
     private static void ValidateKey(string key, string parameterName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key, parameterName);
@@ -81,6 +105,12 @@ internal static class StripeMetadataPolicy
         }
     }
 
+    private static bool IsSafeMetadataKey(string? key) =>
+        !string.IsNullOrWhiteSpace(key)
+        && key.Length <= MaxMetadataKeyLength
+        && key.All(IsAllowedKeyCharacter)
+        && !SensitiveKeyFragments.Any(fragment => key.Contains(fragment, StringComparison.OrdinalIgnoreCase));
+
     private static void ValidateValue(string value, string parameterName)
     {
         ArgumentNullException.ThrowIfNull(value, parameterName);
@@ -92,6 +122,9 @@ internal static class StripeMetadataPolicy
                 parameterName);
         }
     }
+
+    private static bool IsSafeMetadataValue(string? value) =>
+        value is not null && value.Length <= MaxMetadataValueLength;
 
     private static bool IsAllowedKeyCharacter(char character) =>
         char.IsAsciiLetterOrDigit(character)

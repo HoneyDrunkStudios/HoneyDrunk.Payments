@@ -10,7 +10,8 @@
   Checkout subscription creation with Stripe Tax enabled, subscription
   read/cancel, signed webhook normalization, invoice reconciliation snapshots,
   explicit Stripe API version pinning, and outbound provider metadata safety
-  enforcement.
+  enforcement plus inbound provider metadata sanitization before normalized
+  snapshots cross package boundaries.
 - Add `HoneyDrunk.Payments.Tests.ProviderTesting`, a test-scoped reusable
   provider-neutral assertion harness that Stripe `.Tests.Unit` facts already
   run for checkout, lifecycle, webhook, invoice, and metered-billing behavior.

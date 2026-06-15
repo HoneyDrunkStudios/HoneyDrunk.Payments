@@ -37,6 +37,12 @@ Checkout session creation enables Stripe Tax with `automatic_tax.enabled=true`.
 Stripe requests are pinned to API version `2026-05-27.dahlia`; changing that pin
 is a deliberate Payments provider upgrade.
 
+Outbound caller metadata is bounded and rejected when keys look sensitive.
+Inbound Stripe metadata is sanitized before subscription, webhook, and invoice
+snapshots cross the provider-neutral boundary; unsafe keys such as tokens,
+secrets, email addresses, phone numbers, signatures, and card identifiers are
+stripped instead of returned to product consumers.
+
 Hosts should log meter-emission failures at the product boundary with tenant,
 project, event type, operation key, billing event id, and correlation id. Do not
 log Stripe API keys, webhook secrets, raw signatures, or full webhook payloads.

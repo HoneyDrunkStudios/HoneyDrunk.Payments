@@ -468,6 +468,35 @@ public sealed class StripeBillingClientTests
     }
 
     [Fact]
+    public async Task BillingClientStripsSensitiveInboundSubscriptionMetadata()
+    {
+        var sdk = new CapturingStripeBillingSdk
+        {
+            Subscription = new Subscription
+            {
+                Id = "sub_test",
+                CustomerId = "cus_test",
+                Status = "active",
+                Metadata = new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    [StripeBillingClient.TenantMetadataKey] = "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    [StripeBillingClient.ProjectMetadataKey] = "project-1",
+                    ["api_token"] = "secret",
+                    ["support_email"] = "billing@example.com",
+                },
+            },
+        };
+        IPaymentSubscriptionLifecycleClient client = new StripeBillingClient(sdk);
+
+        var snapshot = await client.GetSubscriptionAsync("sub_test", CancellationToken.None);
+
+        Assert.Equal("project-1", snapshot.ProjectId);
+        Assert.Equal("project-1", snapshot.Metadata[StripeBillingClient.ProjectMetadataKey]);
+        Assert.False(snapshot.Metadata.ContainsKey("api_token"));
+        Assert.False(snapshot.Metadata.ContainsKey("support_email"));
+    }
+
+    [Fact]
     public async Task BillingClientCancelsSubscriptionThroughProviderNeutralContract()
     {
         var canceledAt = DateTime.UtcNow;
@@ -538,6 +567,39 @@ public sealed class StripeBillingClientTests
         Assert.Equal(Payload, sdk.LastWebhookPayload);
         Assert.Equal("t=1,v1=test", sdk.LastWebhookSignature);
         Assert.Equal("whsec_test", sdk.LastWebhookSecret);
+    }
+
+    [Fact]
+    public async Task BillingClientStripsSensitiveInboundWebhookMetadata()
+    {
+        var sdk = new CapturingStripeBillingSdk();
+        IPaymentWebhookEventValidator client = new StripeBillingClient(sdk, new FixedStripeWebhookSecretProvider("whsec_test"));
+        const string Payload = """
+            {
+              "id": "evt_test",
+              "object": "event",
+              "created": 1710000000,
+              "livemode": false,
+              "type": "customer.subscription.updated",
+              "data": {
+                "object": {
+                  "id": "sub_test",
+                  "object": "subscription",
+                  "metadata": {
+                    "project_id": "project-1",
+                    "webhook_secret": "whsec_test",
+                    "customer_email": "billing@example.com"
+                  }
+                }
+              }
+            }
+            """;
+
+        var snapshot = await client.ValidateWebhookEventAsync(Payload, "t=1,v1=test", CancellationToken.None);
+
+        Assert.Equal("project-1", snapshot.Metadata[StripeBillingClient.ProjectMetadataKey]);
+        Assert.False(snapshot.Metadata.ContainsKey("webhook_secret"));
+        Assert.False(snapshot.Metadata.ContainsKey("customer_email"));
     }
 
     [Fact]
@@ -623,6 +685,52 @@ public sealed class StripeBillingClientTests
         Assert.Equal("01ARZ3NDEKTSV4RRFFQ69G5FAV", snapshot.TenantId);
         Assert.Equal("project-1", snapshot.ProjectId);
         Assert.Equal("stripe", snapshot.Metadata["invoice_source"]);
+    }
+
+    [Fact]
+    public async Task BillingClientStripsSensitiveInboundInvoiceMetadata()
+    {
+        var sdk = new CapturingStripeBillingSdk
+        {
+            Invoice = new Invoice
+            {
+                Id = "in_test",
+                CustomerId = "cus_test",
+                Status = "paid",
+                Currency = "usd",
+                AmountDue = 1200,
+                AmountPaid = 1200,
+                AmountRemaining = 0,
+                Metadata = new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["invoice_source"] = "stripe",
+                    ["card_token"] = "tok_test",
+                    ["billing_email"] = "billing@example.com",
+                },
+                Parent = new InvoiceParent
+                {
+                    SubscriptionDetails = new InvoiceParentSubscriptionDetails
+                    {
+                        SubscriptionId = "sub_test",
+                        Metadata = new Dictionary<string, string>(StringComparer.Ordinal)
+                        {
+                            [StripeBillingClient.TenantMetadataKey] = "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                            [StripeBillingClient.ProjectMetadataKey] = "project-1",
+                            ["operator_secret"] = "secret",
+                        },
+                    },
+                },
+            },
+        };
+        IPaymentInvoiceReconciliationClient client = new StripeBillingClient(sdk);
+
+        var snapshot = await client.ReconcileInvoiceAsync("in_test", CancellationToken.None);
+
+        Assert.Equal("project-1", snapshot.ProjectId);
+        Assert.Equal("stripe", snapshot.Metadata["invoice_source"]);
+        Assert.False(snapshot.Metadata.ContainsKey("card_token"));
+        Assert.False(snapshot.Metadata.ContainsKey("billing_email"));
+        Assert.False(snapshot.Metadata.ContainsKey("operator_secret"));
     }
 
     [Fact]
