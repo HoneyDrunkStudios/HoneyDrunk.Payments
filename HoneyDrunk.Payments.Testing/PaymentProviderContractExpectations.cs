@@ -15,6 +15,7 @@ namespace HoneyDrunk.Payments.Testing;
 /// <param name="WebhookEventType">Provider webhook event type expected after signature validation.</param>
 /// <param name="WebhookPayload">Signed webhook payload supplied to the provider validator.</param>
 /// <param name="WebhookSignatureHeader">Provider signature header supplied with the webhook payload.</param>
+/// <param name="InvalidWebhookSignatureHeader">Invalid provider signature header expected to be rejected.</param>
 public sealed record PaymentProviderContractExpectations(
     string TenantId,
     string ProjectId,
@@ -27,4 +28,5 @@ public sealed record PaymentProviderContractExpectations(
     string WebhookProviderEventId,
     string WebhookEventType,
     string WebhookPayload,
-    string WebhookSignatureHeader);
+    string WebhookSignatureHeader,
+    string InvalidWebhookSignatureHeader);

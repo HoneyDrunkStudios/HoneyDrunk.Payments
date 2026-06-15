@@ -151,6 +151,32 @@ public sealed class StripeBillingClientTests
         Assert.Contains("sensitive", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("tok_test_123")]
+    [InlineData("billing@example.com")]
+    public async Task EmitAsyncRejectsSensitiveBillingAttributeValues(string sensitiveValue)
+    {
+        var adapter = new StripeBillingEventEmitter(new CapturingStripeMeterEventBuffer());
+        var billingEvent = new BillingEvent(
+            new TenantId("01ARZ3NDEKTSV4RRFFQ69G5FAV"),
+            "payments.submission.accepted",
+            "email",
+            Units: 1,
+            DateTimeOffset.UtcNow,
+            "corr-1",
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [StripeBillingEventEmitter.BillingEventIdAttributeKey] = "bill-event-1",
+                ["provider_reference"] = sensitiveValue,
+            });
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await adapter.EmitAsync(billingEvent, CancellationToken.None));
+
+        Assert.Equal("billingEvent.Attributes", exception.ParamName);
+        Assert.Contains("sensitive", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public async Task MeterEventReplayDispatcherSendsBufferedEventToStripeClient()
     {

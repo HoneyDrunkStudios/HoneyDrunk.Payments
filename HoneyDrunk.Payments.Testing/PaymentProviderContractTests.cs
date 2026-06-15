@@ -84,6 +84,21 @@ public abstract class PaymentProviderContractTests
     }
 
     /// <summary>
+    /// Verifies that the provider rejects webhook payloads with invalid signatures.
+    /// </summary>
+    /// <returns>A task that completes when the assertion run finishes.</returns>
+    protected async Task AssertProviderRejectsWebhookWithInvalidSignatureAsync()
+    {
+        var fixture = CreateFixture();
+
+        await Assert.ThrowsAnyAsync<Exception>(async () =>
+            await fixture.WebhookEventValidator.ValidateWebhookEventAsync(
+                fixture.Expectations.WebhookPayload,
+                fixture.Expectations.InvalidWebhookSignatureHeader,
+                CancellationToken.None));
+    }
+
+    /// <summary>
     /// Verifies that the provider reconciles invoices with normalized invoice snapshots.
     /// </summary>
     /// <returns>A task that completes when the assertion run finishes.</returns>

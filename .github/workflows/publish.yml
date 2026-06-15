@@ -29,8 +29,16 @@ jobs:
           WORKFLOW_DISPATCH_VERSION: ${{ github.event.inputs.version }}
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            if [[ "$GITHUB_REF" != "refs/heads/main" && ! "$GITHUB_REF" =~ ^refs/tags/v(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)(-((0|[1-9][0-9]*)|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)([.]((0|[1-9][0-9]*)|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*)?$ ]]; then
+              echo "::error::Manual package releases must run from main or a semver v* tag."
+              exit 1
+            fi
             VERSION="$WORKFLOW_DISPATCH_VERSION"
             VERSION_TAG="v${VERSION}"
+            if [[ "$GITHUB_REF" == refs/tags/* && "$GITHUB_REF" != "refs/tags/${VERSION_TAG}" ]]; then
+              echo "::error::Manual package release version must match the selected tag."
+              exit 1
+            fi
           else
             VERSION="${GITHUB_REF#refs/tags/v}"
             VERSION_TAG="${GITHUB_REF#refs/tags/}"

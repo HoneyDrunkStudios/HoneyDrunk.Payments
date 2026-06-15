@@ -42,6 +42,14 @@ public sealed class StripePaymentProviderContractTests : PaymentProviderContract
         AssertProviderValidatesWebhookWithProviderNeutralSnapshotAsync();
 
     /// <summary>
+    /// Verifies that Stripe rejects webhook payloads with invalid signatures.
+    /// </summary>
+    /// <returns>A task that completes when the assertion run finishes.</returns>
+    [Fact]
+    public Task ProviderRejectsWebhookWithInvalidSignature() =>
+        AssertProviderRejectsWebhookWithInvalidSignatureAsync();
+
+    /// <summary>
     /// Verifies that Stripe reconciles invoices with normalized invoice snapshots.
     /// </summary>
     /// <returns>A task that completes when the assertion run finishes.</returns>
@@ -105,7 +113,8 @@ public sealed class StripePaymentProviderContractTests : PaymentProviderContract
                 "evt_contract",
                 "customer.subscription.updated",
                 Payload,
-                "t=1,v1=test"))
+                "t=1,v1=valid",
+                "t=1,v1=invalid"))
         {
             client = new StripeBillingClient(
                 new ContractStripeBillingSdk(),
@@ -189,8 +198,15 @@ public sealed class StripePaymentProviderContractTests : PaymentProviderContract
                 Metadata = PaymentsMetadata(),
             });
 
-        public Event ConstructEvent(string payload, string signatureHeader, string webhookSecret) =>
-            EventUtility.ParseEvent(payload, throwOnApiVersionMismatch: false);
+        public Event ConstructEvent(string payload, string signatureHeader, string webhookSecret)
+        {
+            if (!StringComparer.Ordinal.Equals(signatureHeader, "t=1,v1=valid"))
+            {
+                throw new StripeException("Invalid webhook signature.");
+            }
+
+            return EventUtility.ParseEvent(payload, throwOnApiVersionMismatch: false);
+        }
 
         public Task<Invoice> GetInvoiceAsync(string invoiceId, CancellationToken cancellationToken) =>
             Task.FromResult(new Invoice

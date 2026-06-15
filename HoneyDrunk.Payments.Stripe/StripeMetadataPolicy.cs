@@ -129,10 +129,10 @@ internal static class StripeMetadataPolicy
     {
         ArgumentNullException.ThrowIfNull(value, parameterName);
 
-        if (value.Length > MaxMetadataValueLength)
+        if (!IsSafeProviderMetadataValue(value))
         {
             throw new ArgumentException(
-                $"Stripe metadata values cannot exceed {MaxMetadataValueLength} characters.",
+                $"Stripe metadata values cannot exceed {MaxMetadataValueLength} characters or contain sensitive-looking provider data.",
                 parameterName);
         }
     }
@@ -141,6 +141,9 @@ internal static class StripeMetadataPolicy
         value is not null && value.Length <= MaxMetadataValueLength;
 
     private static bool IsSafeInboundMetadataValue(string? value) =>
+        IsSafeProviderMetadataValue(value);
+
+    private static bool IsSafeProviderMetadataValue(string? value) =>
         value is not null
         && IsSafeMetadataValue(value)
         && !value.Contains('@', StringComparison.Ordinal)
