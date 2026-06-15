@@ -161,6 +161,10 @@ public sealed class StripeBillingClient :
         ArgumentNullException.ThrowIfNull(request);
         ValidateCheckoutRequest(request);
 
+        var stripeCustomerId = string.IsNullOrWhiteSpace(request.StripeCustomerId)
+            ? null
+            : request.StripeCustomerId;
+
         var metadata = BuildPaymentsMetadata(
             request.TenantId,
             request.ProjectId,
@@ -172,8 +176,8 @@ public sealed class StripeBillingClient :
             Mode = "subscription",
             SuccessUrl = request.SuccessUrl,
             CancelUrl = request.CancelUrl,
-            Customer = request.StripeCustomerId,
-            CustomerEmail = string.IsNullOrWhiteSpace(request.StripeCustomerId) ? request.CustomerEmail : null,
+            Customer = stripeCustomerId,
+            CustomerEmail = stripeCustomerId is null ? request.CustomerEmail : null,
             ClientReferenceId = $"{request.TenantId}:{request.ProjectId}",
             Metadata = metadata,
             LineItems =

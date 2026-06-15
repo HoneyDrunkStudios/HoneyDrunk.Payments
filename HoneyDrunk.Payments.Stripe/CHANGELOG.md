@@ -15,3 +15,5 @@
   API-key strings in Payments client state.
 - Resolve Stripe webhook endpoint secrets through `IStripeWebhookSecretProvider`
   instead of accepting raw webhook secrets on validator contracts.
+- Document Stripe meter configuration requirements for `customer_key` customer
+  mapping and product-boundary diagnostics for meter-emission failures.

@@ -22,7 +22,12 @@ composition is fail-closed instead of falling back to no-op transport.
 
 Meter events publish `customer_key`, `value`, `billing_event_id`, and
 `correlation_id` payload fields plus bounded non-PII metadata. Stripe meters must
-be configured with matching customer and value mappings. Kernel `BillingEvent`
-records must include a non-empty `billing_event_id` attribute; Payments uses it
-as both the Stripe meter identifier and API idempotency key. `correlation_id`
-remains trace metadata only.
+set `customer_mapping.event_payload_key` to `customer_key`, and the usage value
+mapping must read `value`. Kernel `BillingEvent` records must include
+a non-empty `billing_event_id` attribute; Payments uses it as both the Stripe
+meter identifier and API idempotency key. `correlation_id` remains trace metadata
+only.
+
+Hosts should log meter-emission failures at the product boundary with tenant,
+project, event type, operation key, billing event id, and correlation id. Do not
+log Stripe API keys, webhook secrets, raw signatures, or full webhook payloads.

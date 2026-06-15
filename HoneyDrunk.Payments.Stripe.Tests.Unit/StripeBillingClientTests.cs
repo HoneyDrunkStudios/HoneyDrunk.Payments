@@ -204,6 +204,38 @@ public sealed class StripeBillingClientTests
     }
 
     [Fact]
+    public async Task BillingClientTreatsWhitespaceStripeCustomerIdAsMissing()
+    {
+        var sdk = new CapturingStripeBillingSdk
+        {
+            CheckoutSession = new StripeCheckout.Session
+            {
+                Id = "cs_test",
+                Url = "https://checkout.stripe.test/session",
+                CustomerId = "cus_test",
+                SubscriptionId = "sub_test",
+            },
+        };
+        var client = new StripeBillingClient(sdk);
+        var request = new StripeCheckoutSessionRequest(
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "project-1",
+            "Starter",
+            "price_starter",
+            "https://payments.test/success",
+            "https://payments.test/cancel",
+            "checkout-1",
+            StripeCustomerId: " ",
+            CustomerEmail: "billing@example.com");
+
+        await client.CreateCheckoutSessionAsync(request);
+
+        Assert.NotNull(sdk.LastCheckoutSessionOptions);
+        Assert.Null(sdk.LastCheckoutSessionOptions.Customer);
+        Assert.Equal("billing@example.com", sdk.LastCheckoutSessionOptions.CustomerEmail);
+    }
+
+    [Fact]
     public async Task BillingClientSupportsProviderNeutralCheckoutContract()
     {
         var sdk = new CapturingStripeBillingSdk

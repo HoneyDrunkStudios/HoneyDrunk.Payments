@@ -16,6 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\HoneyDrunk.Payments.ProviderTesting\HoneyDrunk.Payments.ProviderTesting.csproj" />
     <ProjectReference Include="..\HoneyDrunk.Payments.Stripe\HoneyDrunk.Payments.Stripe.csproj" />
   </ItemGroup>
 
