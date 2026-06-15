@@ -480,7 +480,8 @@ public sealed class StripeBillingClientTests
                 Metadata = new Dictionary<string, string>(StringComparer.Ordinal)
                 {
                     [StripeBillingClient.TenantMetadataKey] = "01ARZ3NDEKTSV4RRFFQ69G5FAV",
-                    [StripeBillingClient.ProjectMetadataKey] = "project-1",
+                    [StripeBillingClient.ProjectMetadataKey] = "billing@example.com",
+                    [StripeBillingClient.TierMetadataKey] = "Starter",
                     ["api_token"] = "secret",
                     ["support_email"] = "billing@example.com",
                 },
@@ -490,8 +491,9 @@ public sealed class StripeBillingClientTests
 
         var snapshot = await client.GetSubscriptionAsync("sub_test", CancellationToken.None);
 
-        Assert.Equal("project-1", snapshot.ProjectId);
-        Assert.Equal("project-1", snapshot.Metadata[StripeBillingClient.ProjectMetadataKey]);
+        Assert.Null(snapshot.ProjectId);
+        Assert.Equal("Starter", snapshot.TierName);
+        Assert.False(snapshot.Metadata.ContainsKey(StripeBillingClient.ProjectMetadataKey));
         Assert.False(snapshot.Metadata.ContainsKey("api_token"));
         Assert.False(snapshot.Metadata.ContainsKey("support_email"));
     }
@@ -586,7 +588,8 @@ public sealed class StripeBillingClientTests
                   "id": "sub_test",
                   "object": "subscription",
                   "metadata": {
-                    "project_id": "project-1",
+                    "project_id": "billing@example.com",
+                    "tier_name": "Starter",
                     "webhook_secret": "whsec_test",
                     "customer_email": "billing@example.com"
                   }
@@ -597,7 +600,8 @@ public sealed class StripeBillingClientTests
 
         var snapshot = await client.ValidateWebhookEventAsync(Payload, "t=1,v1=test", CancellationToken.None);
 
-        Assert.Equal("project-1", snapshot.Metadata[StripeBillingClient.ProjectMetadataKey]);
+        Assert.Equal("Starter", snapshot.Metadata[StripeBillingClient.TierMetadataKey]);
+        Assert.False(snapshot.Metadata.ContainsKey(StripeBillingClient.ProjectMetadataKey));
         Assert.False(snapshot.Metadata.ContainsKey("webhook_secret"));
         Assert.False(snapshot.Metadata.ContainsKey("customer_email"));
     }
@@ -703,7 +707,7 @@ public sealed class StripeBillingClientTests
                 AmountRemaining = 0,
                 Metadata = new Dictionary<string, string>(StringComparer.Ordinal)
                 {
-                    ["invoice_source"] = "stripe",
+                    ["invoice_source"] = "sk_test_123",
                     ["card_token"] = "tok_test",
                     ["billing_email"] = "billing@example.com",
                 },
@@ -727,7 +731,7 @@ public sealed class StripeBillingClientTests
         var snapshot = await client.ReconcileInvoiceAsync("in_test", CancellationToken.None);
 
         Assert.Equal("project-1", snapshot.ProjectId);
-        Assert.Equal("stripe", snapshot.Metadata["invoice_source"]);
+        Assert.False(snapshot.Metadata.ContainsKey("invoice_source"));
         Assert.False(snapshot.Metadata.ContainsKey("card_token"));
         Assert.False(snapshot.Metadata.ContainsKey("billing_email"));
         Assert.False(snapshot.Metadata.ContainsKey("operator_secret"));

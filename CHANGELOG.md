@@ -12,6 +12,6 @@
   explicit Stripe API version pinning, and outbound provider metadata safety
   enforcement plus inbound provider metadata sanitization before normalized
   snapshots cross package boundaries.
-- Add `HoneyDrunk.Payments.Tests.ProviderTesting`, a test-scoped reusable
+- Add `HoneyDrunk.Payments.Testing`, a test-scoped reusable
   provider-neutral assertion harness that Stripe `.Tests.Unit` facts already
   run for checkout, lifecycle, webhook, invoice, and metered-billing behavior.

@@ -1,4 +1,4 @@
-namespace HoneyDrunk.Payments.Tests.ProviderTesting;
+namespace HoneyDrunk.Payments.Testing;
 
 /// <summary>
 /// Expected provider values used by reusable payment provider contract tests.

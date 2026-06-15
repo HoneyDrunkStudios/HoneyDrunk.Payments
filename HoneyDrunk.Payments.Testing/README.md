@@ -1,4 +1,4 @@
-# HoneyDrunk.Payments.Tests.ProviderTesting
+# HoneyDrunk.Payments.Testing
 
 Reusable provider-neutral contract assertions for Payments provider test
 projects.

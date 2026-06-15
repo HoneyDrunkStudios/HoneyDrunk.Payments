@@ -6,6 +6,14 @@ internal static class StripeMetadataPolicy
     internal const int MaxMetadataKeyLength = 40;
     internal const int MaxMetadataValueLength = 500;
 
+    private static readonly HashSet<string> AllowedInboundMetadataKeys = new(StringComparer.Ordinal)
+    {
+        "invoice_source",
+        "payments_tenant_id",
+        "project_id",
+        "tier_name",
+    };
+
     private static readonly string[] SensitiveKeyFragments =
     [
         "api_key",
@@ -70,7 +78,7 @@ internal static class StripeMetadataPolicy
                 break;
             }
 
-            if (IsSafeMetadataKey(key) && IsSafeMetadataValue(value))
+            if (IsAllowedInboundMetadata(key, value))
             {
                 copy[key] = value;
             }
@@ -111,6 +119,12 @@ internal static class StripeMetadataPolicy
         && key.All(IsAllowedKeyCharacter)
         && !SensitiveKeyFragments.Any(fragment => key.Contains(fragment, StringComparison.OrdinalIgnoreCase));
 
+    private static bool IsAllowedInboundMetadata(string? key, string? value) =>
+        key is not null
+        && IsSafeMetadataKey(key)
+        && AllowedInboundMetadataKeys.Contains(key)
+        && IsSafeInboundMetadataValue(value);
+
     private static void ValidateValue(string value, string parameterName)
     {
         ArgumentNullException.ThrowIfNull(value, parameterName);
@@ -125,6 +139,18 @@ internal static class StripeMetadataPolicy
 
     private static bool IsSafeMetadataValue(string? value) =>
         value is not null && value.Length <= MaxMetadataValueLength;
+
+    private static bool IsSafeInboundMetadataValue(string? value) =>
+        value is not null
+        && IsSafeMetadataValue(value)
+        && !value.Contains('@', StringComparison.Ordinal)
+        && !SensitiveKeyFragments.Any(fragment => value.Contains(fragment, StringComparison.OrdinalIgnoreCase))
+        && !value.StartsWith("sk_", StringComparison.OrdinalIgnoreCase)
+        && !value.StartsWith("pk_", StringComparison.OrdinalIgnoreCase)
+        && !value.StartsWith("rk_", StringComparison.OrdinalIgnoreCase)
+        && !value.StartsWith("whsec_", StringComparison.OrdinalIgnoreCase)
+        && !value.StartsWith("tok_", StringComparison.OrdinalIgnoreCase)
+        && !value.StartsWith("card_", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsAllowedKeyCharacter(char character) =>
         char.IsAsciiLetterOrDigit(character)

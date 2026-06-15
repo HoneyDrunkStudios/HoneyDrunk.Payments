@@ -23,13 +23,18 @@ use `StripeMeterEventReplayDispatcher` to drain accepted events to Stripe.
 Checkout sessions enable Stripe Tax, and Stripe requests are pinned to API
 version `2026-05-27.dahlia`.
 
-Reusable provider contract assertions live in
-`HoneyDrunk.Payments.Tests.ProviderTesting`. Provider `.Tests.Unit` projects
-subclass its `PaymentProviderContractTests` harness and own the concrete
+Reusable provider contract assertions live in `HoneyDrunk.Payments.Testing`.
+Provider `.Tests.Unit` projects subclass its `PaymentProviderContractTests`
+harness and own the concrete
 `[Fact]` methods, so checkout, subscription lifecycle, webhook normalization,
 invoice reconciliation, and metered-billing behavior are checked through the
 same abstraction contracts for Stripe and future providers. Production projects
 must not reference this test-scoped helper.
+
+Payments pins `HoneyDrunk.Kernel.Abstractions` to `0.7.0`, the current
+Architecture baseline used by Grid Review. The billing contracts consumed here
+(`BillingEvent`, `IBillingEventEmitter`, and `TenantId`) are present in that
+baseline.
 Issue
 [HoneyDrunk.Payments#3](https://github.com/HoneyDrunkStudios/HoneyDrunk.Payments/issues/3)
 tracks expanding the suite when a second provider exposes provider-specific

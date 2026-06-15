@@ -39,9 +39,11 @@ is a deliberate Payments provider upgrade.
 
 Outbound caller metadata is bounded and rejected when keys look sensitive.
 Inbound Stripe metadata is sanitized before subscription, webhook, and invoice
-snapshots cross the provider-neutral boundary; unsafe keys such as tokens,
-secrets, email addresses, phone numbers, signatures, and card identifiers are
-stripped instead of returned to product consumers.
+snapshots cross the provider-neutral boundary. Only known-safe keys currently
+used for product mapping (`payments_tenant_id`, `project_id`, `tier_name`, and
+`invoice_source`) are returned, and values that look like tokens, secrets, email
+addresses, phone numbers, signatures, or card identifiers are stripped instead
+of returned to product consumers.
 
 Hosts should log meter-emission failures at the product boundary with tenant,
 project, event type, operation key, billing event id, and correlation id. Do not
