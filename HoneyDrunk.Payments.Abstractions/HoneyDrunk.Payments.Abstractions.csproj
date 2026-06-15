@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>HoneyDrunk.Payments.Abstractions</PackageId>
+    <Description>Provider-neutral HoneyDrunk payment and billing contracts.</Description>
+    <PackageTags>honeydrunk;payments;billing;abstractions</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HoneyDrunk.Standards" Version="0.2.9" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="CHANGELOG.md" Pack="true" PackagePath="\" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

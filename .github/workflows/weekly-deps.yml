@@ -1,0 +1,26 @@
+name: Weekly Dependencies
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  weekly-deps:
+    name: Weekly Dependencies
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/nightly-deps.yml@main
+    with:
+      dotnet-version: '10.0.x'
+      runs-on: 'ubuntu-latest'
+      working-directory: '.'
+      project-path: './HoneyDrunk.Payments.slnx'
+      check-dotnet-deps: true
+      create-update-prs: true
+      actions-ref: 'main'
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}

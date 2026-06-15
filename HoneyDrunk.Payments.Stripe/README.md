@@ -1,0 +1,83 @@
+# HoneyDrunk.Payments.Stripe
+
+Stripe payment and billing adapter package for HoneyDrunk metered usage,
+subscription lifecycle, signed webhook normalization, and invoice reconciliation.
+
+`StripeBillingEventEmitter` maps Kernel `BillingEvent` records into
+`StripeMeterEvent` payloads and enqueues them through `IStripeMeterEventBuffer`.
+Product hosts own that durable Tier 0 buffer. Replay workers drain the buffer
+with `StripeMeterEventReplayDispatcher`, which sends accepted events through
+`IStripeMeteredBillingClient`. `StripeBillingClient` uses Stripe.NET for
+meter-event transport, Checkout-backed subscription creation, subscription
+read/cancel, signed webhook normalization, and invoice reconciliation snapshots.
+It also implements the provider-neutral `HoneyDrunk.Payments.Abstractions`
+contracts for product code that should not depend directly on Stripe-specific
+types.
+
+Hosts construct API transport with `StripeBillingClient` and
+`IStripeApiKeyProvider`. Webhook endpoints construct
+`StripeWebhookEventValidator` with `IStripeWebhookSecretProvider`. Providers
+should resolve Stripe API keys and webhook endpoint secrets from the host Vault
+/ `ISecretStore` boundary at call time and should be scoped to the host
+operation that needs them; billing transports do not need webhook-secret access,
+and webhook validators do not need API-key access. The Payments package does not
+accept or retain raw provider-secret strings in public client state.
+
+`StripeBillingEventEmitter` requires an `IStripeMeterEventBuffer`. Missing
+composition is fail-closed instead of falling back to direct provider transport
+or no-op transport.
+
+Meter events publish `customer_key`, `value`, `billing_event_id`, and
+`correlation_id` payload fields plus bounded non-PII metadata. Stripe meters must
+set `customer_mapping.event_payload_key` to `customer_key`, and the usage value
+mapping must read `value`. Kernel `BillingEvent` records must include
+a non-empty `billing_event_id` attribute; Payments uses it as both the Stripe
+meter identifier and API idempotency key. Kernel `BillingEvent` records must also
+include a non-empty `provider_customer_id` attribute containing the persisted
+Stripe customer id, usually `cus_...`, or another configured Stripe meter
+customer key. Payments copies that value into `customer_key`; it does not derive
+Stripe customer identity from HoneyDrunk tenant ids. `billing_event_id` and
+`provider_customer_id` are routing fields and are not copied into arbitrary
+Stripe metadata. `correlation_id` remains trace metadata only. The durable buffer
+should dedupe on the same `billing_event_id` and replay at least once until
+Stripe accepts the event.
+
+Kernel billing event names are normalized before durable enqueue: event type and
+operation key are joined, dots and hyphens become underscores, uppercase ASCII is
+lowercased, and the resulting Stripe meter `event_name` must be 100 characters
+or fewer with only lowercase ASCII letters, digits, and underscores. Buffered
+events that do not match that provider-safe format fail permanently during
+replay instead of being retried unchanged.
+
+Replay preserves original usage timestamps. `StripeBillingClient` rejects meter
+events older than 35 days or more than five minutes in the future with
+`StripeMeterEventPermanentFailureException`. Buffers should treat that exception
+as a dead-letter/reconciliation signal rather than retrying the same event
+unchanged.
+
+Checkout session creation enables Stripe Tax with `automatic_tax.enabled=true`.
+Stripe requests are pinned to API version `2026-05-27.dahlia`; changing that pin
+is a deliberate Payments provider upgrade.
+
+Outbound caller metadata and reserved Payments metadata values
+(`payments_tenant_id`, `project_id`, and `tier_name`) are bounded and reject
+email-shaped values, phone numbers, card-shaped values, bearer/signature-looking
+values, opaque secret-looking values, or explicit provider secret prefixes.
+GUID-shaped product identifiers are allowed.
+Metadata keys still reject sensitive fragments such as `token`, `secret`,
+`card`, and `address`, but opaque values are not rejected only because they
+contain those substrings.
+Outbound provider-bound identifiers, including Stripe customer ids, price ids,
+idempotency keys, meter identifiers, correlation ids, subscription ids, invoice
+ids, and cancellation comments, reject email-shaped values and explicit provider
+secret prefixes before Stripe transport.
+Inbound Stripe metadata is sanitized before subscription, webhook, and invoice
+snapshots cross the provider-neutral boundary. Only known-safe keys currently
+used for product mapping (`payments_tenant_id`, `project_id`, `tier_name`, and
+`invoice_source`) are returned, and values that look like tokens, secrets, email
+addresses, phone numbers, signatures, or card identifiers are stripped instead
+of returned to product consumers.
+
+Hosts should log meter-emission failures at the product boundary with tenant,
+project, event type, operation key, billing event id, and correlation id. Do not
+log Stripe API keys, webhook secrets, raw signatures, or full webhook payloads.

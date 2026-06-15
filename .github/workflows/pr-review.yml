@@ -1,0 +1,26 @@
+name: Grid Review Request
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: grid-review-${{ github.repository }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  request-grid-review:
+    if: ${{ !github.event.pull_request.draft }}
+    # pull_request_target runs against the base repository context. The reusable
+    # queue workflow checks out only the base ref and reads PR metadata through
+    # the GitHub API; it must not check out or execute PR-head code.
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-review-request.yml@main
+    with:
+      review-config-path: .honeydrunk-review.yaml
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
