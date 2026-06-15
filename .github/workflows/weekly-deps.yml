@@ -22,3 +22,5 @@ jobs:
       check-dotnet-deps: true
       create-update-prs: true
       actions-ref: 'main'
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
