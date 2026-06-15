@@ -173,13 +173,64 @@ internal static class StripeMetadataPolicy
         value is not null && value.Length <= MaxMetadataValueLength;
 
     private static bool IsSafeInboundMetadataValue(string? value) =>
-        IsSafeProviderMetadataValue(value);
+        IsSafeProviderMetadataValue(value)
+        && !LooksLikeInboundSecretValue(value);
 
     private static bool IsSafeProviderMetadataValue(string? value) =>
         value is not null
         && IsSafeMetadataValue(value)
         && !value.Contains('@', StringComparison.Ordinal)
         && !SensitiveValuePrefixes.Any(prefix => value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+
+    private static bool LooksLikeInboundSecretValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return true;
+        }
+
+        var trimmed = value.Trim();
+        return LooksLikePhoneNumber(trimmed)
+            || LooksLikeCardNumber(trimmed)
+            || LooksLikeSignature(trimmed)
+            || LooksLikeOpaqueSecret(trimmed);
+    }
+
+    private static bool LooksLikePhoneNumber(string value)
+    {
+        var digitCount = value.Count(char.IsAsciiDigit);
+        return digitCount >= 7
+            && digitCount <= 15
+            && value.All(static character =>
+                char.IsAsciiDigit(character)
+                || character is '+' or '-' or '.' or ' ' or '(' or ')');
+    }
+
+    private static bool LooksLikeCardNumber(string value)
+    {
+        var digitCount = value.Count(char.IsAsciiDigit);
+        return digitCount >= 13
+            && digitCount <= 19
+            && value.All(static character =>
+                char.IsAsciiDigit(character)
+                || character is '-' or ' ');
+    }
+
+    private static bool LooksLikeSignature(string value) =>
+        value.StartsWith("bearer ", StringComparison.OrdinalIgnoreCase)
+        || value.StartsWith("basic ", StringComparison.OrdinalIgnoreCase)
+        || value.StartsWith("sha256=", StringComparison.OrdinalIgnoreCase)
+        || value.StartsWith("v1=", StringComparison.OrdinalIgnoreCase)
+        || value.StartsWith("sig_", StringComparison.OrdinalIgnoreCase)
+        || value.Contains("-----BEGIN", StringComparison.OrdinalIgnoreCase);
+
+    private static bool LooksLikeOpaqueSecret(string value) =>
+        value.Length >= 32
+        && value.Any(char.IsAsciiLetter)
+        && value.Any(char.IsAsciiDigit)
+        && value.All(static character =>
+            char.IsAsciiLetterOrDigit(character)
+            || character is '_' or '-' or '+' or '/' or '=');
 
     private static bool IsAllowedKeyCharacter(char character) =>
         char.IsAsciiLetterOrDigit(character)
