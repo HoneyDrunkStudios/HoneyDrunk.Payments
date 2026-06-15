@@ -1,4 +1,4 @@
-name: Publish to NuGet
+name: Package Release
 
 on:
   push:
@@ -45,7 +45,7 @@ jobs:
           echo "Publishing tag: $VERSION_TAG"
 
   release:
-    name: Build, Pack & Publish
+    name: Build & Pack
     needs: prepare
     permissions:
       contents: write
@@ -58,8 +58,10 @@ jobs:
       configuration: 'Release'
       runs-on: 'ubuntu-latest'
       project-path: 'HoneyDrunk.Payments.slnx'
-      enable-nuget-publish: true
-      nuget-source: 'https://api.nuget.org/v3/index.json'
+      # Package publishing is intentionally disabled for the bootstrap slice.
+      # Flip this in the explicit package-publishing work item when NuGet
+      # ownership, signing, and operator secrets are ready.
+      enable-nuget-publish: false
       package-version: ${{ needs.prepare.outputs.version }}
       create-github-release: true
       github-release-tag: ${{ needs.prepare.outputs.version_tag }}
@@ -70,5 +72,3 @@ jobs:
         HoneyDrunk.Payments.Stripe
       release-docs-url: 'https://github.com/HoneyDrunkStudios/HoneyDrunk.Payments#readme'
       actions-ref: 'main'
-    secrets:
-      nuget-api-key: ${{ secrets.NUGET_API_KEY }}
