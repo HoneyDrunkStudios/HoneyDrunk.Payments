@@ -9,7 +9,7 @@ namespace HoneyDrunk.Payments.Stripe;
 /// </summary>
 internal sealed class StripeBillingSdk : IStripeBillingSdk
 {
-    private readonly string apiKey;
+    private readonly IStripeApiKeyProvider apiKeyProvider;
     private readonly MeterEventService meterEvents = new();
     private readonly StripeCheckout.SessionService checkoutSessions = new();
     private readonly SubscriptionService subscriptions = new();
@@ -18,38 +18,51 @@ internal sealed class StripeBillingSdk : IStripeBillingSdk
     /// <summary>
     /// Initializes a new instance of the <see cref="StripeBillingSdk"/> class.
     /// </summary>
-    /// <param name="apiKey">Stripe API key.</param>
-    public StripeBillingSdk(string apiKey)
+    /// <param name="apiKeyProvider">Stripe API key provider.</param>
+    public StripeBillingSdk(IStripeApiKeyProvider apiKeyProvider)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
-        this.apiKey = apiKey;
+        this.apiKeyProvider = apiKeyProvider ?? throw new ArgumentNullException(nameof(apiKeyProvider));
     }
 
     /// <inheritdoc />
-    public Task<MeterEvent> CreateMeterEventAsync(
+    public async Task<MeterEvent> CreateMeterEventAsync(
         MeterEventCreateOptions options,
         string? idempotencyKey,
         CancellationToken cancellationToken) =>
-        meterEvents.CreateAsync(options, CreateRequestOptions(idempotencyKey), cancellationToken);
+        await meterEvents.CreateAsync(
+            options,
+            await CreateRequestOptionsAsync(idempotencyKey, cancellationToken).ConfigureAwait(false),
+            cancellationToken).ConfigureAwait(false);
 
     /// <inheritdoc />
-    public Task<StripeCheckout.Session> CreateCheckoutSessionAsync(
+    public async Task<StripeCheckout.Session> CreateCheckoutSessionAsync(
         StripeCheckout.SessionCreateOptions options,
         string? idempotencyKey,
         CancellationToken cancellationToken) =>
-        checkoutSessions.CreateAsync(options, CreateRequestOptions(idempotencyKey), cancellationToken);
+        await checkoutSessions.CreateAsync(
+            options,
+            await CreateRequestOptionsAsync(idempotencyKey, cancellationToken).ConfigureAwait(false),
+            cancellationToken).ConfigureAwait(false);
 
     /// <inheritdoc />
-    public Task<Subscription> GetSubscriptionAsync(string subscriptionId, CancellationToken cancellationToken) =>
-        subscriptions.GetAsync(subscriptionId, options: null, CreateRequestOptions(null), cancellationToken);
+    public async Task<Subscription> GetSubscriptionAsync(string subscriptionId, CancellationToken cancellationToken) =>
+        await subscriptions.GetAsync(
+            subscriptionId,
+            options: null,
+            await CreateRequestOptionsAsync(null, cancellationToken).ConfigureAwait(false),
+            cancellationToken).ConfigureAwait(false);
 
     /// <inheritdoc />
-    public Task<Subscription> CancelSubscriptionAsync(
+    public async Task<Subscription> CancelSubscriptionAsync(
         string subscriptionId,
         SubscriptionCancelOptions options,
         string? idempotencyKey,
         CancellationToken cancellationToken) =>
-        subscriptions.CancelAsync(subscriptionId, options, CreateRequestOptions(idempotencyKey), cancellationToken);
+        await subscriptions.CancelAsync(
+            subscriptionId,
+            options,
+            await CreateRequestOptionsAsync(idempotencyKey, cancellationToken).ConfigureAwait(false),
+            cancellationToken).ConfigureAwait(false);
 
     /// <inheritdoc />
     public Event ConstructEvent(string payload, string signatureHeader, string webhookSecret) =>
@@ -61,13 +74,22 @@ internal sealed class StripeBillingSdk : IStripeBillingSdk
             throwOnApiVersionMismatch: false);
 
     /// <inheritdoc />
-    public Task<Invoice> GetInvoiceAsync(string invoiceId, CancellationToken cancellationToken) =>
-        invoices.GetAsync(invoiceId, options: null, CreateRequestOptions(null), cancellationToken);
+    public async Task<Invoice> GetInvoiceAsync(string invoiceId, CancellationToken cancellationToken) =>
+        await invoices.GetAsync(
+            invoiceId,
+            options: null,
+            await CreateRequestOptionsAsync(null, cancellationToken).ConfigureAwait(false),
+            cancellationToken).ConfigureAwait(false);
 
-    private RequestOptions CreateRequestOptions(string? idempotencyKey) =>
-        new()
+    private async ValueTask<RequestOptions> CreateRequestOptionsAsync(string? idempotencyKey, CancellationToken cancellationToken)
+    {
+        var apiKey = await apiKeyProvider.GetApiKeyAsync(cancellationToken).ConfigureAwait(false);
+        ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
+
+        return new RequestOptions
         {
             ApiKey = apiKey,
             IdempotencyKey = string.IsNullOrWhiteSpace(idempotencyKey) ? null : idempotencyKey,
         };
+    }
 }

@@ -11,6 +11,17 @@ and invoice reconciliation snapshots. It also implements the provider-neutral
 `HoneyDrunk.Payments.Abstractions` contracts for product code that should not
 depend directly on Stripe-specific types.
 
-Meter events publish `customer_key`, `value`, and `correlation_id` payload fields
-plus bounded non-PII metadata. Stripe meters must be configured with matching
-customer and value mappings.
+Hosts construct `StripeBillingClient` with an `IStripeApiKeyProvider`. The
+provider should resolve Stripe API keys from the host Vault / `ISecretStore`
+boundary at call time; the Payments package does not accept or retain raw API-key
+strings in public client state.
+
+`StripeBillingEventEmitter` requires an `IStripeMeteredBillingClient`. Missing
+composition is fail-closed instead of falling back to no-op transport.
+
+Meter events publish `customer_key`, `value`, `billing_event_id`, and
+`correlation_id` payload fields plus bounded non-PII metadata. Stripe meters must
+be configured with matching customer and value mappings. Kernel `BillingEvent`
+records must include a non-empty `billing_event_id` attribute; Payments uses it
+as both the Stripe meter identifier and API idempotency key. `correlation_id`
+remains trace metadata only.

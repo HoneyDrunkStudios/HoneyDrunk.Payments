@@ -13,6 +13,17 @@ Product Nodes such as NovOutbox keep product-specific pricing, tenant binding,
 and subscription-state persistence. They compose Payments provider packages
 instead of carrying Stripe SDK code in product repos.
 
+Provider packages should keep SDKs and provider-specific secrets behind their
+own composition boundary. For Stripe, hosts provide `IStripeApiKeyProvider`
+backed by Vault / `ISecretStore` and pass per-event billing idempotency through
+the `billing_event_id` billing attribute.
+
+Provider contract tests currently cover the shared abstraction surface plus the
+Stripe implementation paths in this bootstrap PR. A reusable cross-provider
+contract-test package is tracked in
+[HoneyDrunk.Payments#3](https://github.com/HoneyDrunkStudios/HoneyDrunk.Payments/issues/3)
+once a second provider exists.
+
 ## Build
 
 ```powershell

@@ -7,3 +7,9 @@
   reconciliation.
 - Preserve original billing-event timestamps when creating Stripe meter events.
 - Enforce checkout idempotency keys before calling Stripe Checkout.
+- Require per-event meter idempotency through the `billing_event_id` billing
+  attribute instead of trace correlation.
+- Require explicit metered billing transport composition to avoid silent no-op
+  revenue-event drops.
+- Resolve Stripe API keys through `IStripeApiKeyProvider` instead of storing raw
+  API-key strings in Payments client state.

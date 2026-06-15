@@ -23,6 +23,7 @@ public sealed class StripeBillingClient :
     internal const string TierMetadataKey = "tier_name";
     internal const string MeterCustomerPayloadKey = "customer_key";
     internal const string MeterValuePayloadKey = "value";
+    internal const string MeterEventIdPayloadKey = "billing_event_id";
     internal const string MeterCorrelationPayloadKey = "correlation_id";
 
     private const string ProviderName = PaymentProviderNames.Stripe;
@@ -32,9 +33,9 @@ public sealed class StripeBillingClient :
     /// <summary>
     /// Initializes a new instance of the <see cref="StripeBillingClient"/> class.
     /// </summary>
-    /// <param name="apiKey">Stripe API key.</param>
-    public StripeBillingClient(string apiKey)
-        : this(new StripeBillingSdk(apiKey))
+    /// <param name="apiKeyProvider">Stripe API key provider.</param>
+    public StripeBillingClient(IStripeApiKeyProvider apiKeyProvider)
+        : this(new StripeBillingSdk(apiKeyProvider))
     {
     }
 
@@ -120,6 +121,7 @@ public sealed class StripeBillingClient :
         ArgumentNullException.ThrowIfNull(meterEvent);
         ArgumentException.ThrowIfNullOrWhiteSpace(meterEvent.EventName);
         ArgumentException.ThrowIfNullOrWhiteSpace(meterEvent.CustomerKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(meterEvent.IdempotencyKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(meterEvent.CorrelationId);
 
         if (meterEvent.Units <= 0)
@@ -130,18 +132,19 @@ public sealed class StripeBillingClient :
         var payload = CopyMetadata(meterEvent.Metadata);
         payload[MeterCustomerPayloadKey] = meterEvent.CustomerKey;
         payload[MeterValuePayloadKey] = meterEvent.Units.ToString(CultureInfo.InvariantCulture);
+        payload[MeterEventIdPayloadKey] = meterEvent.IdempotencyKey;
         payload[MeterCorrelationPayloadKey] = meterEvent.CorrelationId;
 
         var options = new MeterEventCreateOptions
         {
             EventName = meterEvent.EventName,
-            Identifier = meterEvent.CorrelationId,
+            Identifier = meterEvent.IdempotencyKey,
             Payload = payload,
             Timestamp = meterEvent.OccurredAtUtc.UtcDateTime,
         };
 
         await sdk
-            .CreateMeterEventAsync(options, meterEvent.CorrelationId, cancellationToken)
+            .CreateMeterEventAsync(options, meterEvent.IdempotencyKey, cancellationToken)
             .ConfigureAwait(false);
     }
 
