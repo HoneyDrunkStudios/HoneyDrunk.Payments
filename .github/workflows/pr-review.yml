@@ -15,7 +15,9 @@ concurrency:
 
 jobs:
   request-grid-review:
-    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    # pull_request_target runs against the base repository context. The reusable
+    # queue workflow checks out only the base ref and reads PR metadata through
+    # the GitHub API; it must not check out or execute PR-head code.
     uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-review-request.yml@main
     with:
       review-config-path: .honeydrunk-review.yaml

@@ -50,6 +50,7 @@ jobs:
       actions-ref: 'main'
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}
+      sonar-token: ${{ secrets.SONAR_TOKEN }}
 
   coverage-baseline-ratchet:
     name: Coverage Baseline Ratchet

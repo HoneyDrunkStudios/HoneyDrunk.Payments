@@ -5,4 +5,6 @@ skip_paths:
   - "**/*.Designer.cs"
   - "**/*.g.cs"
   - "**/generated/**"
+# Local worker reviews run on already-provisioned operator capacity; zero means
+# no hosted review spend is authorized, not that Grid Review should be disabled.
 cost_cap_per_pr_usd: 0.00
