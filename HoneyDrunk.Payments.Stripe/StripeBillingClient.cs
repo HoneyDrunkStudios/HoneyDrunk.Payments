@@ -142,7 +142,7 @@ public sealed class StripeBillingClient :
 
         if (meterEvent.Units <= 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(meterEvent), meterEvent.Units, "Meter event units must be positive.");
+            throw new ArgumentOutOfRangeException("meterEvent.Units", meterEvent.Units, "Meter event units must be positive.");
         }
 
         ValidateMeterEventTimestamp(meterEvent, timeProvider.GetUtcNow());
@@ -383,7 +383,7 @@ public sealed class StripeBillingClient :
 
         if (request.Quantity <= 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(request), request.Quantity, "Checkout quantity must be positive.");
+            throw new ArgumentOutOfRangeException("request.Quantity", request.Quantity, "Checkout quantity must be positive.");
         }
     }
 

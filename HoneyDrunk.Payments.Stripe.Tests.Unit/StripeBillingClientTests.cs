@@ -338,6 +338,25 @@ public sealed class StripeBillingClientTests
     }
 
     [Fact]
+    public async Task BillingClientRejectsNonPositiveMeterEventUnitsWithMemberParameterName()
+    {
+        var client = new StripeBillingClient(new CapturingStripeBillingSdk());
+        var meterEvent = new StripeMeterEvent(
+            "payments.submission.accepted.email",
+            "cus_test",
+            0,
+            DateTimeOffset.UtcNow,
+            "bill-event-1",
+            "corr-1",
+            new Dictionary<string, string>(StringComparer.Ordinal));
+
+        var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
+            await client.RecordMeterEventAsync(meterEvent, CancellationToken.None));
+
+        Assert.Equal("meterEvent.Units", exception.ParamName);
+    }
+
+    [Fact]
     public async Task BillingClientRejectsOversizedMeterMetadata()
     {
         var client = new StripeBillingClient(new CapturingStripeBillingSdk());
@@ -701,6 +720,27 @@ public sealed class StripeBillingClientTests
             await client.CreateCheckoutSessionAsync(request));
 
         Assert.Equal("request.IdempotencyKey", exception.ParamName);
+    }
+
+    [Fact]
+    public async Task BillingClientRejectsNonPositiveCheckoutQuantityWithMemberParameterName()
+    {
+        var client = new StripeBillingClient(new CapturingStripeBillingSdk());
+        var request = new StripeCheckoutSessionRequest(
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "project-1",
+            "Starter",
+            "price_starter",
+            "https://payments.test/success",
+            "https://payments.test/cancel",
+            "checkout-1",
+            CustomerEmail: "billing@example.com",
+            Quantity: 0);
+
+        var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
+            await client.CreateCheckoutSessionAsync(request));
+
+        Assert.Equal("request.Quantity", exception.ParamName);
     }
 
     [Fact]
