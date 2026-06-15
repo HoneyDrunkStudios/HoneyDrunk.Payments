@@ -72,3 +72,5 @@ jobs:
         HoneyDrunk.Payments.Stripe
       release-docs-url: 'https://github.com/HoneyDrunkStudios/HoneyDrunk.Payments#readme'
       actions-ref: 'main'
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
