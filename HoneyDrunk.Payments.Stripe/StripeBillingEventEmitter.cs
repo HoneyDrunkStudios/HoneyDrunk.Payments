@@ -1,18 +1,19 @@
-using HoneyDrunk.Kernel.Abstractions.Tenancy;
+using KernelBillingEvent = HoneyDrunk.Kernel.Abstractions.Tenancy.BillingEvent;
+using KernelBillingEventEmitter = HoneyDrunk.Kernel.Abstractions.Tenancy.IBillingEventEmitter;
 
 namespace HoneyDrunk.Payments.Stripe;
 
 /// <summary>
 /// Emits Grid billing events into Stripe metered billing.
 /// </summary>
-public sealed class StripeBillingEventEmitter(IStripeMeteredBillingClient client) : IBillingEventEmitter
+public sealed class StripeBillingEventEmitter(IStripeMeteredBillingClient client) : KernelBillingEventEmitter
 {
     internal const string BillingEventIdAttributeKey = "billing_event_id";
 
     private readonly IStripeMeteredBillingClient meteredBillingClient = client ?? throw new ArgumentNullException(nameof(client));
 
     /// <inheritdoc />
-    public async ValueTask EmitAsync(BillingEvent billingEvent, CancellationToken cancellationToken)
+    public async ValueTask EmitAsync(KernelBillingEvent billingEvent, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(billingEvent);
 
@@ -41,7 +42,7 @@ public sealed class StripeBillingEventEmitter(IStripeMeteredBillingClient client
         await meteredBillingClient.RecordMeterEventAsync(meterEvent, cancellationToken).ConfigureAwait(false);
     }
 
-    private static string GetBillingEventId(BillingEvent billingEvent)
+    private static string GetBillingEventId(KernelBillingEvent billingEvent)
     {
         if (billingEvent.Attributes.TryGetValue(BillingEventIdAttributeKey, out var billingEventId)
             && !string.IsNullOrWhiteSpace(billingEventId))

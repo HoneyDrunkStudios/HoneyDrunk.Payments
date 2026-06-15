@@ -1,8 +1,8 @@
-using HoneyDrunk.Kernel.Abstractions.Tenancy;
 using HoneyDrunk.Payments.Abstractions;
 using HoneyDrunk.Payments.ProviderTesting;
 using Stripe;
 using Stripe.Billing;
+using KernelBillingEventEmitter = HoneyDrunk.Kernel.Abstractions.Tenancy.IBillingEventEmitter;
 using StripeCheckout = Stripe.Checkout;
 
 namespace HoneyDrunk.Payments.Stripe.Tests.Unit;
@@ -64,7 +64,7 @@ public sealed class StripePaymentProviderContractTests : PaymentProviderContract
 
         public override IPaymentInvoiceReconciliationClient InvoiceReconciliationClient => client;
 
-        public override IBillingEventEmitter BillingEventEmitter { get; } =
+        public override KernelBillingEventEmitter BillingEventEmitter { get; } =
             new StripeBillingEventEmitter(new ContractStripeMeteredBillingClient());
     }
 
