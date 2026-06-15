@@ -1,5 +1,5 @@
 using HoneyDrunk.Payments.Abstractions;
-using HoneyDrunk.Payments.Testing;
+using HoneyDrunk.Payments.Tests.Unit;
 using Stripe;
 using Stripe.Billing;
 using KernelBillingEventEmitter = HoneyDrunk.Kernel.Abstractions.Tenancy.IBillingEventEmitter;

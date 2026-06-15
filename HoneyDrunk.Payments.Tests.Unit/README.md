@@ -1,7 +1,8 @@
-# HoneyDrunk.Payments.Testing
+# HoneyDrunk.Payments.Tests.Unit
 
 Reusable provider-neutral contract assertions for Payments provider test
-projects.
+projects. This helper uses an approved `.Tests.Unit` project shape, is not
+packable, and is not referenced by production projects.
 
 Provider test projects reference this helper project, subclass
 `PaymentProviderContractTests`, expose concrete `[Fact]` methods from a

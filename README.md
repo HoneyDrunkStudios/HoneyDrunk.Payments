@@ -24,7 +24,8 @@ use `StripeMeterEventReplayDispatcher` to drain accepted events to Stripe.
 Checkout sessions enable Stripe Tax, and Stripe requests are pinned to API
 version `2026-05-27.dahlia`.
 
-Reusable provider contract assertions live in `HoneyDrunk.Payments.Testing`.
+Reusable provider contract assertions live in the approved test helper project
+`HoneyDrunk.Payments.Tests.Unit`.
 Provider `.Tests.Unit` projects subclass its `PaymentProviderContractTests`
 harness and own the concrete
 `[Fact]` methods, so checkout, subscription lifecycle, webhook normalization,
