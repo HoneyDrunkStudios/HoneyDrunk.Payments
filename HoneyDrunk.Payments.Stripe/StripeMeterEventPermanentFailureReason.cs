@@ -14,4 +14,9 @@ public enum StripeMeterEventPermanentFailureReason
     /// The meter event timestamp is too far ahead of the provider clock.
     /// </summary>
     TimestampTooNew,
+
+    /// <summary>
+    /// The meter event name cannot be accepted by the Stripe meter-event API.
+    /// </summary>
+    InvalidEventName,
 }

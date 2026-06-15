@@ -44,6 +44,8 @@ jobs:
       enable-secret-scan: true
       enable-codeql: true
       enable-accessibility-check: false
+      # Architecture currently catalogs HoneyDrunk.Payments as Seed / tier none.
+      # Raise these once a DR tier is assigned after bootstrap.
       patch-coverage-threshold: 70
       absolute-coverage-floor: 65
       post-pr-summary: true

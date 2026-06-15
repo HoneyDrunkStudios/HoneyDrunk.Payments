@@ -38,7 +38,7 @@ public sealed class StripeBillingEventEmitter(IStripeMeterEventBuffer buffer) : 
         var metadata = CreateMeterMetadata(billingEvent.Attributes);
 
         var meterEvent = new StripeMeterEvent(
-            $"{billingEvent.EventType}.{billingEvent.OperationKey}",
+            StripeMeterEventNamePolicy.CreateFromKernelEvent(billingEvent.EventType, billingEvent.OperationKey),
             providerCustomerId,
             billingEvent.Units,
             billingEvent.OccurredAtUtc,

@@ -13,10 +13,12 @@
   Checkout and meter-event provider calls.
 - Validate reserved Payments metadata values before sending Checkout and
   subscription metadata to Stripe.
-- Reject sensitive-looking outbound provider-bound identifiers before Stripe
-  transport, including customer ids, price ids, idempotency keys, meter event
-  identifiers, correlation ids, subscription ids, invoice ids, and cancellation
-  comments.
+- Normalize Kernel billing event names into Stripe-safe meter names before
+  durable enqueue, and classify provider-invalid buffered meter names as
+  permanent replay failures.
+- Reject email-shaped outbound values and explicit provider secret prefixes
+  before Stripe transport without blocking opaque identifiers solely because
+  they contain fragments such as `card`, `secret`, or `address`.
 - Strip sensitive inbound Stripe metadata and allow only known-safe product
   mapping keys before returning subscription, webhook, and invoice snapshots.
 - Require per-event meter idempotency through the `billing_event_id` billing

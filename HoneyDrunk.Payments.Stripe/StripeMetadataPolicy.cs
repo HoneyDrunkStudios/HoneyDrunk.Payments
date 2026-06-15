@@ -31,6 +31,16 @@ internal static class StripeMetadataPolicy
         "token",
     ];
 
+    private static readonly string[] SensitiveValuePrefixes =
+    [
+        "sk_",
+        "pk_",
+        "rk_",
+        "whsec_",
+        "tok_",
+        "card_",
+    ];
+
     public static Dictionary<string, string> CopyOutboundMetadata(
         IReadOnlyDictionary<string, string>? metadata,
         string parameterName)
@@ -169,13 +179,7 @@ internal static class StripeMetadataPolicy
         value is not null
         && IsSafeMetadataValue(value)
         && !value.Contains('@', StringComparison.Ordinal)
-        && !SensitiveKeyFragments.Any(fragment => value.Contains(fragment, StringComparison.OrdinalIgnoreCase))
-        && !value.StartsWith("sk_", StringComparison.OrdinalIgnoreCase)
-        && !value.StartsWith("pk_", StringComparison.OrdinalIgnoreCase)
-        && !value.StartsWith("rk_", StringComparison.OrdinalIgnoreCase)
-        && !value.StartsWith("whsec_", StringComparison.OrdinalIgnoreCase)
-        && !value.StartsWith("tok_", StringComparison.OrdinalIgnoreCase)
-        && !value.StartsWith("card_", StringComparison.OrdinalIgnoreCase);
+        && !SensitiveValuePrefixes.Any(prefix => value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
 
     private static bool IsAllowedKeyCharacter(char character) =>
         char.IsAsciiLetterOrDigit(character)

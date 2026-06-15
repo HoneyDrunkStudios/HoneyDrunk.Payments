@@ -39,6 +39,13 @@ Stripe metadata. `correlation_id` remains trace metadata only. The durable buffe
 should dedupe on the same `billing_event_id` and replay at least once until
 Stripe accepts the event.
 
+Kernel billing event names are normalized before durable enqueue: event type and
+operation key are joined, dots and hyphens become underscores, uppercase ASCII is
+lowercased, and the resulting Stripe meter `event_name` must be 100 characters
+or fewer with only lowercase ASCII letters, digits, and underscores. Buffered
+events that do not match that provider-safe format fail permanently during
+replay instead of being retried unchanged.
+
 Replay preserves original usage timestamps. `StripeBillingClient` rejects meter
 events older than 35 days or more than five minutes in the future with
 `StripeMeterEventPermanentFailureException`. Buffers should treat that exception
@@ -50,12 +57,14 @@ Stripe requests are pinned to API version `2026-05-27.dahlia`; changing that pin
 is a deliberate Payments provider upgrade.
 
 Outbound caller metadata and reserved Payments metadata values
-(`payments_tenant_id`, `project_id`, and `tier_name`) are bounded and rejected
-when values look sensitive.
+(`payments_tenant_id`, `project_id`, and `tier_name`) are bounded and reject
+email-shaped values or explicit provider secret prefixes. Metadata keys still
+reject sensitive fragments such as `token`, `secret`, `card`, and `address`, but
+opaque values are not rejected only because they contain those substrings.
 Outbound provider-bound identifiers, including Stripe customer ids, price ids,
 idempotency keys, meter identifiers, correlation ids, subscription ids, invoice
-ids, and cancellation comments, reject sensitive-looking values before Stripe
-transport.
+ids, and cancellation comments, reject email-shaped values and explicit provider
+secret prefixes before Stripe transport.
 Inbound Stripe metadata is sanitized before subscription, webhook, and invoice
 snapshots cross the provider-neutral boundary. Only known-safe keys currently
 used for product mapping (`payments_tenant_id`, `project_id`, `tier_name`, and

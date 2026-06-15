@@ -136,6 +136,7 @@ public sealed class StripeBillingClient :
         ArgumentException.ThrowIfNullOrWhiteSpace(meterEvent.CustomerKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(meterEvent.IdempotencyKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(meterEvent.CorrelationId);
+        ValidateMeterEventName(meterEvent);
         StripeMetadataPolicy.ValidateProviderReferenceValue(meterEvent.CustomerKey, "meterEvent.CustomerKey");
         StripeMetadataPolicy.ValidateProviderReferenceValue(meterEvent.IdempotencyKey, "meterEvent.IdempotencyKey");
         StripeMetadataPolicy.ValidateProviderReferenceValue(meterEvent.CorrelationId, "meterEvent.CorrelationId");
@@ -355,6 +356,19 @@ public sealed class StripeBillingClient :
                 meterEvent,
                 "Stripe meter event timestamp is too far in the future and should be dead-lettered or retried after clock reconciliation instead of sent unchanged.");
         }
+    }
+
+    private static void ValidateMeterEventName(StripeMeterEvent meterEvent)
+    {
+        if (StripeMeterEventNamePolicy.IsValidEventName(meterEvent.EventName))
+        {
+            return;
+        }
+
+        throw new StripeMeterEventPermanentFailureException(
+            StripeMeterEventPermanentFailureReason.InvalidEventName,
+            meterEvent,
+            "Stripe meter event name is outside the accepted provider-safe format and should be dead-lettered or reconciled instead of retried unchanged.");
     }
 
     private static void ValidateCheckoutRequest(StripeCheckoutSessionRequest request)
