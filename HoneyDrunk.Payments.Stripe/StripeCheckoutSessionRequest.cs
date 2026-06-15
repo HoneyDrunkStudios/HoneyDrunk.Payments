@@ -9,10 +9,10 @@ namespace HoneyDrunk.Payments.Stripe;
 /// <param name="StripePriceId">Stripe recurring price identifier.</param>
 /// <param name="SuccessUrl">Checkout success redirect URL.</param>
 /// <param name="CancelUrl">Checkout cancel redirect URL.</param>
+/// <param name="IdempotencyKey">Stripe idempotency key for retry-safe checkout creation.</param>
 /// <param name="StripeCustomerId">Existing Stripe customer identifier, when known.</param>
 /// <param name="CustomerEmail">Customer email for Checkout-created customers.</param>
 /// <param name="Quantity">Subscription item quantity.</param>
-/// <param name="IdempotencyKey">Optional Stripe idempotency key.</param>
 /// <param name="Metadata">Additional non-PII metadata.</param>
 public sealed record StripeCheckoutSessionRequest(
     string TenantId,
@@ -21,8 +21,8 @@ public sealed record StripeCheckoutSessionRequest(
     string StripePriceId,
     string SuccessUrl,
     string CancelUrl,
+    string IdempotencyKey,
     string? StripeCustomerId = null,
     string? CustomerEmail = null,
     long Quantity = 1,
-    string? IdempotencyKey = null,
     IReadOnlyDictionary<string, string>? Metadata = null);

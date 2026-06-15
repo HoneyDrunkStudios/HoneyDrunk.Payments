@@ -10,6 +10,21 @@ permissions:
   contents: read
 
 jobs:
+  abstractions-contract-shape-canary:
+    name: Abstractions Contract Shape Canary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Test Abstractions contract shape
+        run: dotnet test ./HoneyDrunk.Payments.Abstractions.Tests.Unit/HoneyDrunk.Payments.Abstractions.Tests.Unit.csproj -c Release
+
   pr-core:
     name: PR Core
     if: github.event_name == 'pull_request'

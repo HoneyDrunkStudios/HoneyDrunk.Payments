@@ -58,10 +58,10 @@ public sealed class StripeBillingClient :
                     request.ProviderPriceId,
                     request.SuccessUrl,
                     request.CancelUrl,
+                    request.IdempotencyKey,
                     request.ProviderCustomerId,
                     request.CustomerEmail,
                     request.Quantity,
-                    request.IdempotencyKey,
                     request.Metadata),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -137,7 +137,7 @@ public sealed class StripeBillingClient :
             EventName = meterEvent.EventName,
             Identifier = meterEvent.CorrelationId,
             Payload = payload,
-            Timestamp = DateTime.UtcNow,
+            Timestamp = meterEvent.OccurredAtUtc.UtcDateTime,
         };
 
         await sdk
@@ -306,6 +306,7 @@ public sealed class StripeBillingClient :
         ArgumentException.ThrowIfNullOrWhiteSpace(request.StripePriceId);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.SuccessUrl);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.CancelUrl);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.IdempotencyKey);
 
         if (string.IsNullOrWhiteSpace(request.StripeCustomerId)
             && string.IsNullOrWhiteSpace(request.CustomerEmail))

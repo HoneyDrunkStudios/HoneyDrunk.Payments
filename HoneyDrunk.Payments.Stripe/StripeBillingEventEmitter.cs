@@ -29,6 +29,7 @@ public sealed class StripeBillingEventEmitter(IStripeMeteredBillingClient? clien
             $"{billingEvent.EventType}.{billingEvent.OperationKey}",
             billingEvent.TenantId.ToString(),
             billingEvent.Units,
+            billingEvent.OccurredAtUtc,
             billingEvent.CorrelationId,
             billingEvent.Attributes);
 

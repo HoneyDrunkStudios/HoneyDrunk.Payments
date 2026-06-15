@@ -5,7 +5,7 @@ using Stripe;
 using Stripe.Billing;
 using StripeCheckout = Stripe.Checkout;
 
-namespace HoneyDrunk.Payments.Stripe.Tests;
+namespace HoneyDrunk.Payments.Stripe.Tests.Unit;
 
 public sealed class StripeBillingClientTests
 {
@@ -15,12 +15,13 @@ public sealed class StripeBillingClientTests
         var client = new CapturingStripeMeteredBillingClient();
         var adapter = new StripeBillingEventEmitter(client);
         var tenantId = new TenantId("01ARZ3NDEKTSV4RRFFQ69G5FAV");
+        var occurredAtUtc = new DateTimeOffset(2026, 6, 14, 12, 30, 0, TimeSpan.Zero);
         var billingEvent = new BillingEvent(
             tenantId,
             "payments.submission.accepted",
             "sms",
             Units: 2,
-            DateTimeOffset.UtcNow,
+            occurredAtUtc,
             "corr-1",
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
@@ -33,6 +34,7 @@ public sealed class StripeBillingClientTests
         Assert.Equal("payments.submission.accepted.sms", client.LastEvent.EventName);
         Assert.Equal(tenantId.ToString(), client.LastEvent.CustomerKey);
         Assert.Equal(2, client.LastEvent.Units);
+        Assert.Equal(occurredAtUtc, client.LastEvent.OccurredAtUtc);
         Assert.Equal("corr-1", client.LastEvent.CorrelationId);
         Assert.Equal("project-1", client.LastEvent.Metadata["project_id"]);
     }
@@ -80,10 +82,12 @@ public sealed class StripeBillingClientTests
     {
         var sdk = new CapturingStripeBillingSdk();
         var client = new StripeBillingClient(sdk);
+        var occurredAtUtc = new DateTimeOffset(2026, 6, 14, 12, 30, 0, TimeSpan.Zero);
         var meterEvent = new StripeMeterEvent(
             "payments.submission.accepted.email",
             "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             3,
+            occurredAtUtc,
             "corr-1",
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
@@ -95,6 +99,7 @@ public sealed class StripeBillingClientTests
         Assert.NotNull(sdk.LastMeterEventOptions);
         Assert.Equal("payments.submission.accepted.email", sdk.LastMeterEventOptions.EventName);
         Assert.Equal("corr-1", sdk.LastMeterEventOptions.Identifier);
+        Assert.Equal(occurredAtUtc.UtcDateTime, sdk.LastMeterEventOptions.Timestamp);
         Assert.Equal("corr-1", sdk.LastIdempotencyKey);
         Assert.Equal("01ARZ3NDEKTSV4RRFFQ69G5FAV", sdk.LastMeterEventOptions.Payload[StripeBillingClient.MeterCustomerPayloadKey]);
         Assert.Equal("3", sdk.LastMeterEventOptions.Payload[StripeBillingClient.MeterValuePayloadKey]);
@@ -122,8 +127,14 @@ public sealed class StripeBillingClientTests
             "price_starter",
             "https://payments.test/success",
             "https://payments.test/cancel",
+            "checkout-1",
             CustomerEmail: "billing@example.com",
-            IdempotencyKey: "checkout-1");
+            Metadata: new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [StripeBillingClient.TenantMetadataKey] = "caller-tenant",
+                [StripeBillingClient.ProjectMetadataKey] = "caller-project",
+                [StripeBillingClient.TierMetadataKey] = "caller-tier",
+            });
 
         var session = await client.CreateCheckoutSessionAsync(request);
 
@@ -160,8 +171,8 @@ public sealed class StripeBillingClientTests
             "price_starter",
             "https://payments.test/success",
             "https://payments.test/cancel",
-            CustomerEmail: "billing@example.com",
-            IdempotencyKey: "checkout-1");
+            "checkout-1",
+            CustomerEmail: "billing@example.com");
 
         var session = await client.CreateCheckoutSessionAsync(request);
 
@@ -172,6 +183,26 @@ public sealed class StripeBillingClientTests
         Assert.NotNull(sdk.LastCheckoutSessionOptions);
         Assert.Equal("price_starter", Assert.Single(sdk.LastCheckoutSessionOptions.LineItems).Price);
         Assert.Equal("checkout-1", sdk.LastIdempotencyKey);
+    }
+
+    [Fact]
+    public async Task BillingClientRejectsCheckoutSessionWithoutIdempotencyKey()
+    {
+        var client = new StripeBillingClient(new CapturingStripeBillingSdk());
+        var request = new StripeCheckoutSessionRequest(
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "project-1",
+            "Starter",
+            "price_starter",
+            "https://payments.test/success",
+            "https://payments.test/cancel",
+            " ",
+            CustomerEmail: "billing@example.com");
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await client.CreateCheckoutSessionAsync(request));
+
+        Assert.Equal("request.IdempotencyKey", exception.ParamName);
     }
 
     [Fact]
@@ -464,6 +495,7 @@ public sealed class StripeBillingClientTests
             "payments.submission.accepted.email",
             "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             1,
+            DateTimeOffset.UtcNow,
             "corr-1",
             new Dictionary<string, string>(StringComparer.Ordinal));
 
@@ -480,6 +512,7 @@ public sealed class StripeBillingClientTests
             "payments.submission.accepted.email",
             "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             1,
+            DateTimeOffset.UtcNow,
             "corr-1",
             new Dictionary<string, string>(StringComparer.Ordinal));
 

@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="HoneyDrunk.Payments.Abstractions/HoneyDrunk.Payments.Abstractions.csproj" />
-  <Project Path="HoneyDrunk.Payments.Stripe.Tests/HoneyDrunk.Payments.Stripe.Tests.csproj" />
+  <Project Path="HoneyDrunk.Payments.Abstractions.Tests.Unit/HoneyDrunk.Payments.Abstractions.Tests.Unit.csproj" />
+  <Project Path="HoneyDrunk.Payments.Stripe.Tests.Unit/HoneyDrunk.Payments.Stripe.Tests.Unit.csproj" />
   <Project Path="HoneyDrunk.Payments.Stripe/HoneyDrunk.Payments.Stripe.csproj" />
 </Solution>
