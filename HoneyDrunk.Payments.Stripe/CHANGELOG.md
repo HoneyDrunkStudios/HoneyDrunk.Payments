@@ -19,6 +19,8 @@
 - Reject email-shaped outbound values and explicit provider secret prefixes
   before Stripe transport without blocking opaque identifiers solely because
   they contain fragments such as `card`, `secret`, or `address`.
+- Allow GUID-shaped product identifiers while still rejecting random-looking
+  opaque secret values in outbound metadata.
 - Strip sensitive inbound Stripe metadata and allow only known-safe product
   mapping keys before returning subscription, webhook, and invoice snapshots.
 - Require per-event meter idempotency through the `billing_event_id` billing

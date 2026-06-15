@@ -63,6 +63,7 @@ Outbound caller metadata and reserved Payments metadata values
 (`payments_tenant_id`, `project_id`, and `tier_name`) are bounded and reject
 email-shaped values, phone numbers, card-shaped values, bearer/signature-looking
 values, opaque secret-looking values, or explicit provider secret prefixes.
+GUID-shaped product identifiers are allowed.
 Metadata keys still reject sensitive fragments such as `token`, `secret`,
 `card`, and `address`, but opaque values are not rejected only because they
 contain those substrings.

@@ -719,6 +719,42 @@ public sealed class StripeBillingClientTests
         Assert.Contains("sensitive", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task BillingClientAllowsGuidShapedCheckoutMetadataValues()
+    {
+        var sdk = new CapturingStripeBillingSdk
+        {
+            CheckoutSession = new StripeCheckout.Session
+            {
+                Id = "cs_test",
+                Url = "https://checkout.stripe.test/session",
+                CustomerId = "cus_test",
+                SubscriptionId = "sub_test",
+            },
+        };
+        var client = new StripeBillingClient(sdk);
+        const string ProjectId = "550e8400-e29b-41d4-a716-446655440000";
+        var request = new StripeCheckoutSessionRequest(
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            ProjectId,
+            "Starter",
+            "price_starter",
+            "https://payments.test/success",
+            "https://payments.test/cancel",
+            "checkout-1",
+            CustomerEmail: "billing@example.com",
+            Metadata: new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["project_context"] = ProjectId,
+            });
+
+        await client.CreateCheckoutSessionAsync(request);
+
+        Assert.NotNull(sdk.LastCheckoutSessionOptions);
+        Assert.Equal(ProjectId, sdk.LastCheckoutSessionOptions.Metadata[StripeBillingClient.ProjectMetadataKey]);
+        Assert.Equal(ProjectId, sdk.LastCheckoutSessionOptions.Metadata["project_context"]);
+    }
+
     [Theory]
     [InlineData("request.StripeCustomerId", "price_starter", "checkout-1", "billing@example.com")]
     [InlineData("request.IdempotencyKey", "price_starter", "tok_test_123", null)]

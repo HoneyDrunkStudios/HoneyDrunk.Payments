@@ -229,6 +229,7 @@ internal static class StripeMetadataPolicy
 
     private static bool LooksLikeOpaqueSecret(string value) =>
         value.Length >= 32
+        && !Guid.TryParseExact(value, "D", out _)
         && value.Any(char.IsAsciiLetter)
         && value.Any(char.IsAsciiDigit)
         && value.All(static character =>
