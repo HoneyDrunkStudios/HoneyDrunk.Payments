@@ -11,10 +11,11 @@ and invoice reconciliation snapshots. It also implements the provider-neutral
 `HoneyDrunk.Payments.Abstractions` contracts for product code that should not
 depend directly on Stripe-specific types.
 
-Hosts construct `StripeBillingClient` with an `IStripeApiKeyProvider`. The
-provider should resolve Stripe API keys from the host Vault / `ISecretStore`
-boundary at call time; the Payments package does not accept or retain raw API-key
-strings in public client state.
+Hosts construct `StripeBillingClient` with `IStripeApiKeyProvider` and
+`IStripeWebhookSecretProvider`. Providers should resolve Stripe API keys and
+webhook endpoint secrets from the host Vault / `ISecretStore` boundary at call
+time; the Payments package does not accept or retain raw provider-secret strings
+in public client state.
 
 `StripeBillingEventEmitter` requires an `IStripeMeteredBillingClient`. Missing
 composition is fail-closed instead of falling back to no-op transport.

@@ -13,3 +13,5 @@
   revenue-event drops.
 - Resolve Stripe API keys through `IStripeApiKeyProvider` instead of storing raw
   API-key strings in Payments client state.
+- Resolve Stripe webhook endpoint secrets through `IStripeWebhookSecretProvider`
+  instead of accepting raw webhook secrets on validator contracts.

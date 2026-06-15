@@ -10,10 +10,10 @@ public interface IStripeWebhookEventValidator
     /// </summary>
     /// <param name="payload">Raw UTF-8 request body.</param>
     /// <param name="signatureHeader">Stripe-Signature header value.</param>
-    /// <param name="webhookSecret">Stripe webhook endpoint secret.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The normalized webhook event.</returns>
-    StripeWebhookEventSnapshot ValidateWebhookEvent(
+    ValueTask<StripeWebhookEventSnapshot> ValidateWebhookEventAsync(
         string payload,
         string signatureHeader,
-        string webhookSecret);
+        CancellationToken cancellationToken);
 }

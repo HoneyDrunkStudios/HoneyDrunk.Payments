@@ -15,8 +15,8 @@ instead of carrying Stripe SDK code in product repos.
 
 Provider packages should keep SDKs and provider-specific secrets behind their
 own composition boundary. For Stripe, hosts provide `IStripeApiKeyProvider`
-backed by Vault / `ISecretStore` and pass per-event billing idempotency through
-the `billing_event_id` billing attribute.
+and `IStripeWebhookSecretProvider` backed by Vault / `ISecretStore`, then pass
+per-event billing idempotency through the `billing_event_id` billing attribute.
 
 Provider contract tests currently cover the shared abstraction surface plus the
 Stripe implementation paths in this bootstrap PR. A reusable cross-provider

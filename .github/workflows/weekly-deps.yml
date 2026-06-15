@@ -22,5 +22,3 @@ jobs:
       check-dotnet-deps: true
       create-update-prs: true
       actions-ref: 'main'
-    secrets:
-      github-token: ${{ secrets.HIVE_FIELD_MIRROR_TOKEN }}

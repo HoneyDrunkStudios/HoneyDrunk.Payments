@@ -10,10 +10,10 @@ public interface IPaymentWebhookEventValidator
     /// </summary>
     /// <param name="payload">Raw UTF-8 request body.</param>
     /// <param name="signatureHeader">Provider signature header value.</param>
-    /// <param name="webhookSecret">Provider webhook endpoint secret.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The normalized webhook event.</returns>
-    PaymentWebhookEventSnapshot ValidateWebhookEvent(
+    ValueTask<PaymentWebhookEventSnapshot> ValidateWebhookEventAsync(
         string payload,
         string signatureHeader,
-        string webhookSecret);
+        CancellationToken cancellationToken);
 }

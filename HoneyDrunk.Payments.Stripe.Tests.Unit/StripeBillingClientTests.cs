@@ -24,6 +24,20 @@ public sealed class StripeBillingClientTests
     }
 
     [Fact]
+    public void WebhookValidationContractsDoNotExposeRawSecretParameters()
+    {
+        var paymentValidatorParameters = typeof(IPaymentWebhookEventValidator)
+            .GetMethods()
+            .SelectMany(method => method.GetParameters());
+        var stripeValidatorParameters = typeof(IStripeWebhookEventValidator)
+            .GetMethods()
+            .SelectMany(method => method.GetParameters());
+
+        Assert.DoesNotContain(paymentValidatorParameters, parameter => parameter.Name == "webhookSecret");
+        Assert.DoesNotContain(stripeValidatorParameters, parameter => parameter.Name == "webhookSecret");
+    }
+
+    [Fact]
     public async Task EmitAsyncRecordsKernelBillingEventAsStripeMeterEvent()
     {
         var client = new CapturingStripeMeteredBillingClient();
@@ -353,10 +367,10 @@ public sealed class StripeBillingClientTests
     }
 
     [Fact]
-    public void BillingClientNormalizesWebhookEventMetadata()
+    public async Task BillingClientNormalizesWebhookEventMetadata()
     {
         var sdk = new CapturingStripeBillingSdk();
-        var client = new StripeBillingClient(sdk);
+        var client = new StripeBillingClient(sdk, new FixedStripeWebhookSecretProvider("whsec_test"));
         const string Payload = """
             {
               "id": "evt_test",
@@ -376,7 +390,7 @@ public sealed class StripeBillingClientTests
             }
             """;
 
-        var snapshot = client.ValidateWebhookEvent(Payload, "t=1,v1=test", "whsec_test");
+        var snapshot = await client.ValidateWebhookEventAsync(Payload, "t=1,v1=test", CancellationToken.None);
 
         Assert.Equal("evt_test", snapshot.EventId);
         Assert.Equal("customer.subscription.updated", snapshot.EventType);
@@ -389,10 +403,10 @@ public sealed class StripeBillingClientTests
     }
 
     [Fact]
-    public void BillingClientSupportsProviderNeutralWebhookContract()
+    public async Task BillingClientSupportsProviderNeutralWebhookContract()
     {
         var sdk = new CapturingStripeBillingSdk();
-        IPaymentWebhookEventValidator client = new StripeBillingClient(sdk);
+        IPaymentWebhookEventValidator client = new StripeBillingClient(sdk, new FixedStripeWebhookSecretProvider("whsec_test"));
         const string Payload = """
             {
               "id": "evt_test",
@@ -409,7 +423,7 @@ public sealed class StripeBillingClientTests
             }
             """;
 
-        var snapshot = client.ValidateWebhookEvent(Payload, "t=1,v1=test", "whsec_test");
+        var snapshot = await client.ValidateWebhookEventAsync(Payload, "t=1,v1=test", CancellationToken.None);
 
         Assert.Equal(PaymentProviderNames.Stripe, snapshot.Provider);
         Assert.Equal("evt_test", snapshot.ProviderEventId);
@@ -569,6 +583,15 @@ public sealed class StripeBillingClientTests
         {
             LastEvent = meterEvent;
             return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class FixedStripeWebhookSecretProvider(string webhookSecret) : IStripeWebhookSecretProvider
+    {
+        public ValueTask<string> GetWebhookSecretAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(webhookSecret);
         }
     }
 

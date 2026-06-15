@@ -29,19 +29,24 @@ public sealed class StripeBillingClient :
     private const string ProviderName = PaymentProviderNames.Stripe;
 
     private readonly IStripeBillingSdk sdk;
+    private readonly IStripeWebhookSecretProvider? webhookSecretProvider;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="StripeBillingClient"/> class.
     /// </summary>
     /// <param name="apiKeyProvider">Stripe API key provider.</param>
-    public StripeBillingClient(IStripeApiKeyProvider apiKeyProvider)
-        : this(new StripeBillingSdk(apiKeyProvider))
+    /// <param name="webhookSecretProvider">Stripe webhook secret provider.</param>
+    public StripeBillingClient(
+        IStripeApiKeyProvider apiKeyProvider,
+        IStripeWebhookSecretProvider webhookSecretProvider)
+        : this(new StripeBillingSdk(apiKeyProvider), webhookSecretProvider)
     {
     }
 
-    internal StripeBillingClient(IStripeBillingSdk sdk)
+    internal StripeBillingClient(IStripeBillingSdk sdk, IStripeWebhookSecretProvider? webhookSecretProvider = null)
     {
         this.sdk = sdk ?? throw new ArgumentNullException(nameof(sdk));
+        this.webhookSecretProvider = webhookSecretProvider;
     }
 
     /// <inheritdoc />
@@ -100,11 +105,11 @@ public sealed class StripeBillingClient :
     }
 
     /// <inheritdoc />
-    PaymentWebhookEventSnapshot IPaymentWebhookEventValidator.ValidateWebhookEvent(
+    async ValueTask<PaymentWebhookEventSnapshot> IPaymentWebhookEventValidator.ValidateWebhookEventAsync(
         string payload,
         string signatureHeader,
-        string webhookSecret) =>
-        ToPaymentWebhookEventSnapshot(ValidateWebhookEvent(payload, signatureHeader, webhookSecret));
+        CancellationToken cancellationToken) =>
+        ToPaymentWebhookEventSnapshot(await ValidateWebhookEventAsync(payload, signatureHeader, cancellationToken).ConfigureAwait(false));
 
     /// <inheritdoc />
     async ValueTask<PaymentInvoiceReconciliationSnapshot> IPaymentInvoiceReconciliationClient.ReconcileInvoiceAsync(
@@ -241,13 +246,17 @@ public sealed class StripeBillingClient :
     }
 
     /// <inheritdoc />
-    public StripeWebhookEventSnapshot ValidateWebhookEvent(
+    public async ValueTask<StripeWebhookEventSnapshot> ValidateWebhookEventAsync(
         string payload,
         string signatureHeader,
-        string webhookSecret)
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(payload);
         ArgumentException.ThrowIfNullOrWhiteSpace(signatureHeader);
+        var provider = webhookSecretProvider
+            ?? throw new InvalidOperationException("Stripe webhook validation requires an IStripeWebhookSecretProvider.");
+
+        var webhookSecret = await provider.GetWebhookSecretAsync(cancellationToken).ConfigureAwait(false);
         ArgumentException.ThrowIfNullOrWhiteSpace(webhookSecret);
 
         var stripeEvent = sdk.ConstructEvent(payload, signatureHeader, webhookSecret);
