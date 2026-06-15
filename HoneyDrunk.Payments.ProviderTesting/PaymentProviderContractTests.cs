@@ -14,8 +14,7 @@ public abstract class PaymentProviderContractTests
     /// Verifies that the provider creates checkout sessions with normalized payment snapshots.
     /// </summary>
     /// <returns>A task that completes when the assertion run finishes.</returns>
-    [Fact]
-    public async Task ProviderCreatesCheckoutSessionWithProviderNeutralSnapshot()
+    protected async Task AssertProviderCreatesCheckoutSessionWithProviderNeutralSnapshotAsync()
     {
         var fixture = CreateFixture();
         var session = await fixture.SubscriptionLifecycleClient.CreateCheckoutSessionAsync(fixture.CreateCheckoutRequest(), CancellationToken.None);
@@ -33,8 +32,7 @@ public abstract class PaymentProviderContractTests
     /// Verifies that the provider reads subscriptions with normalized subscription snapshots.
     /// </summary>
     /// <returns>A task that completes when the assertion run finishes.</returns>
-    [Fact]
-    public async Task ProviderReadsSubscriptionWithProviderNeutralSnapshot()
+    protected async Task AssertProviderReadsSubscriptionWithProviderNeutralSnapshotAsync()
     {
         var fixture = CreateFixture();
         var subscription = await fixture.SubscriptionLifecycleClient.GetSubscriptionAsync(
@@ -54,8 +52,7 @@ public abstract class PaymentProviderContractTests
     /// Verifies that the provider cancels subscriptions with normalized subscription snapshots.
     /// </summary>
     /// <returns>A task that completes when the assertion run finishes.</returns>
-    [Fact]
-    public async Task ProviderCancelsSubscriptionWithProviderNeutralSnapshot()
+    protected async Task AssertProviderCancelsSubscriptionWithProviderNeutralSnapshotAsync()
     {
         var fixture = CreateFixture();
         var subscription = await fixture.SubscriptionLifecycleClient.CancelSubscriptionAsync(
@@ -71,8 +68,7 @@ public abstract class PaymentProviderContractTests
     /// Verifies that the provider validates signed webhook events with normalized event snapshots.
     /// </summary>
     /// <returns>A task that completes when the assertion run finishes.</returns>
-    [Fact]
-    public async Task ProviderValidatesWebhookWithProviderNeutralSnapshot()
+    protected async Task AssertProviderValidatesWebhookWithProviderNeutralSnapshotAsync()
     {
         var fixture = CreateFixture();
         var webhookEvent = await fixture.WebhookEventValidator.ValidateWebhookEventAsync(
@@ -91,8 +87,7 @@ public abstract class PaymentProviderContractTests
     /// Verifies that the provider reconciles invoices with normalized invoice snapshots.
     /// </summary>
     /// <returns>A task that completes when the assertion run finishes.</returns>
-    [Fact]
-    public async Task ProviderReconcilesInvoiceWithProviderNeutralSnapshot()
+    protected async Task AssertProviderReconcilesInvoiceWithProviderNeutralSnapshotAsync()
     {
         var fixture = CreateFixture();
         var invoice = await fixture.InvoiceReconciliationClient.ReconcileInvoiceAsync(
@@ -115,8 +110,7 @@ public abstract class PaymentProviderContractTests
     /// Verifies that the provider accepts meter events that include per-event idempotency.
     /// </summary>
     /// <returns>A task that completes when the assertion run finishes.</returns>
-    [Fact]
-    public async Task ProviderEmitsMeterEventWhenPerEventIdempotencyIsPresent()
+    protected async Task AssertProviderEmitsMeterEventWhenPerEventIdempotencyIsPresentAsync()
     {
         var fixture = CreateFixture();
         var billingEvent = fixture.CreateBillingEvent(new Dictionary<string, string>(StringComparer.Ordinal)
@@ -131,8 +125,7 @@ public abstract class PaymentProviderContractTests
     /// Verifies that the provider rejects meter events that omit per-event idempotency.
     /// </summary>
     /// <returns>A task that completes when the assertion run finishes.</returns>
-    [Fact]
-    public async Task ProviderRejectsMeterEventWithoutPerEventIdempotency()
+    protected async Task AssertProviderRejectsMeterEventWithoutPerEventIdempotencyAsync()
     {
         var fixture = CreateFixture();
         var billingEvent = fixture.CreateBillingEvent(new Dictionary<string, string>(StringComparer.Ordinal));

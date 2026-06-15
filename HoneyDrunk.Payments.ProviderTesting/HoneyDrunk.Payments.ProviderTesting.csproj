@@ -7,7 +7,7 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>false</IsTestProject>
     <NoWarn>$(NoWarn);SA1600</NoWarn>
-    <Description>Reusable provider-neutral contract tests for HoneyDrunk payment providers. Referenced only by provider test projects.</Description>
+    <Description>Reusable provider-neutral assertion harness for HoneyDrunk payment provider test projects.</Description>
   </PropertyGroup>
 
   <ItemGroup>

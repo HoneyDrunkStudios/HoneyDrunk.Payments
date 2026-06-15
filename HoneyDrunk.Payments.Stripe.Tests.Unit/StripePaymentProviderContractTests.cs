@@ -9,6 +9,62 @@ namespace HoneyDrunk.Payments.Stripe.Tests.Unit;
 
 public sealed class StripePaymentProviderContractTests : PaymentProviderContractTests
 {
+    /// <summary>
+    /// Verifies that Stripe creates checkout sessions with normalized payment snapshots.
+    /// </summary>
+    /// <returns>A task that completes when the assertion run finishes.</returns>
+    [Fact]
+    public Task ProviderCreatesCheckoutSessionWithProviderNeutralSnapshot() =>
+        AssertProviderCreatesCheckoutSessionWithProviderNeutralSnapshotAsync();
+
+    /// <summary>
+    /// Verifies that Stripe reads subscriptions with normalized subscription snapshots.
+    /// </summary>
+    /// <returns>A task that completes when the assertion run finishes.</returns>
+    [Fact]
+    public Task ProviderReadsSubscriptionWithProviderNeutralSnapshot() =>
+        AssertProviderReadsSubscriptionWithProviderNeutralSnapshotAsync();
+
+    /// <summary>
+    /// Verifies that Stripe cancels subscriptions with normalized subscription snapshots.
+    /// </summary>
+    /// <returns>A task that completes when the assertion run finishes.</returns>
+    [Fact]
+    public Task ProviderCancelsSubscriptionWithProviderNeutralSnapshot() =>
+        AssertProviderCancelsSubscriptionWithProviderNeutralSnapshotAsync();
+
+    /// <summary>
+    /// Verifies that Stripe validates signed webhook events with normalized event snapshots.
+    /// </summary>
+    /// <returns>A task that completes when the assertion run finishes.</returns>
+    [Fact]
+    public Task ProviderValidatesWebhookWithProviderNeutralSnapshot() =>
+        AssertProviderValidatesWebhookWithProviderNeutralSnapshotAsync();
+
+    /// <summary>
+    /// Verifies that Stripe reconciles invoices with normalized invoice snapshots.
+    /// </summary>
+    /// <returns>A task that completes when the assertion run finishes.</returns>
+    [Fact]
+    public Task ProviderReconcilesInvoiceWithProviderNeutralSnapshot() =>
+        AssertProviderReconcilesInvoiceWithProviderNeutralSnapshotAsync();
+
+    /// <summary>
+    /// Verifies that Stripe accepts meter events that include per-event idempotency.
+    /// </summary>
+    /// <returns>A task that completes when the assertion run finishes.</returns>
+    [Fact]
+    public Task ProviderEmitsMeterEventWhenPerEventIdempotencyIsPresent() =>
+        AssertProviderEmitsMeterEventWhenPerEventIdempotencyIsPresentAsync();
+
+    /// <summary>
+    /// Verifies that Stripe rejects meter events that omit per-event idempotency.
+    /// </summary>
+    /// <returns>A task that completes when the assertion run finishes.</returns>
+    [Fact]
+    public Task ProviderRejectsMeterEventWithoutPerEventIdempotency() =>
+        AssertProviderRejectsMeterEventWithoutPerEventIdempotencyAsync();
+
     protected override PaymentProviderContractFixture CreateFixture() => new StripeContractFixture();
 
     private sealed class StripeContractFixture : PaymentProviderContractFixture

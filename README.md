@@ -18,11 +18,12 @@ own composition boundary. For Stripe, hosts provide `IStripeApiKeyProvider`
 and `IStripeWebhookSecretProvider` backed by Vault / `ISecretStore`, then pass
 per-event billing idempotency through the `billing_event_id` billing attribute.
 
-Reusable provider contract tests live in
-`HoneyDrunk.Payments.ProviderTesting`. Provider test projects subclass its
-`PaymentProviderContractTests` harness so checkout, subscription lifecycle,
-webhook normalization, invoice reconciliation, and metered-billing behavior are
-checked through the same abstraction contracts for Stripe and future providers.
+Reusable provider contract assertions live in
+`HoneyDrunk.Payments.ProviderTesting`. Provider `.Tests.Unit` projects subclass
+its `PaymentProviderContractTests` harness and own the concrete `[Fact]`
+methods, so checkout, subscription lifecycle, webhook normalization, invoice
+reconciliation, and metered-billing behavior are checked through the same
+abstraction contracts for Stripe and future providers.
 Issue
 [HoneyDrunk.Payments#3](https://github.com/HoneyDrunkStudios/HoneyDrunk.Payments/issues/3)
 tracks expanding the suite when a second provider exposes provider-specific

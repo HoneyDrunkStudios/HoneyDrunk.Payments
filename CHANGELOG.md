@@ -10,5 +10,5 @@
   webhook normalization, invoice reconciliation snapshots, and Kernel
   `IBillingEventEmitter` support.
 - Add `HoneyDrunk.Payments.ProviderTesting`, a reusable provider-neutral
-  contract-test harness that Stripe already runs for checkout, lifecycle,
-  webhook, invoice, and metered-billing behavior.
+  assertion harness that Stripe `.Tests.Unit` facts already run for checkout,
+  lifecycle, webhook, invoice, and metered-billing behavior.

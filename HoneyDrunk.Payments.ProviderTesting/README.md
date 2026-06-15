@@ -1,14 +1,16 @@
 # HoneyDrunk.Payments.ProviderTesting
 
-Reusable provider-neutral contract tests for Payments provider packages.
+Reusable provider-neutral contract assertions for Payments provider test
+projects.
 
 Provider test projects reference this helper project, subclass
-`PaymentProviderContractTests`, and return a provider-specific
-`PaymentProviderContractFixture`. The fixture supplies provider-neutral
-clients for subscription lifecycle, webhook validation, invoice reconciliation,
-and Kernel billing-event emission.
+`PaymentProviderContractTests`, expose concrete `[Fact]` methods from a
+`.Tests.Unit` project, and return a provider-specific
+`PaymentProviderContractFixture`. The fixture supplies provider-neutral clients
+for subscription lifecycle, webhook validation, invoice reconciliation, and
+Kernel billing-event emission.
 
-The suite verifies:
+The assertion harness verifies:
 
 - hosted checkout returns a provider-neutral snapshot;
 - subscription read and cancellation return provider-neutral snapshots;
