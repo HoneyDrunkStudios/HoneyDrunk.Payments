@@ -369,6 +369,9 @@ public sealed class StripeBillingClient :
         StripeMetadataPolicy.ValidateProviderReferenceValue(request.StripePriceId, "request.StripePriceId");
         StripeMetadataPolicy.ValidateProviderReferenceValue(request.IdempotencyKey, "request.IdempotencyKey");
         StripeMetadataPolicy.ValidateOptionalProviderReferenceValue(request.StripeCustomerId, "request.StripeCustomerId");
+        StripeMetadataPolicy.ValidateOutboundMetadataValue(request.TenantId, "request.TenantId");
+        StripeMetadataPolicy.ValidateOutboundMetadataValue(request.ProjectId, "request.ProjectId");
+        StripeMetadataPolicy.ValidateOutboundMetadataValue(request.TierName, "request.TierName");
 
         if (string.IsNullOrWhiteSpace(request.StripeCustomerId)
             && string.IsNullOrWhiteSpace(request.CustomerEmail))

@@ -51,7 +51,7 @@ internal static class StripeMetadataPolicy
         foreach (var (key, value) in metadata)
         {
             ValidateKey(key, parameterName);
-            ValidateValue(value, parameterName);
+            ValidateOutboundMetadataValue(value, parameterName);
             copy[key] = value;
         }
 
@@ -83,6 +83,18 @@ internal static class StripeMetadataPolicy
         }
 
         ValidateProviderReferenceValue(value, parameterName);
+    }
+
+    public static void ValidateOutboundMetadataValue(string value, string parameterName)
+    {
+        ArgumentNullException.ThrowIfNull(value, parameterName);
+
+        if (!IsSafeProviderMetadataValue(value))
+        {
+            throw new ArgumentException(
+                $"Stripe metadata values cannot exceed {MaxMetadataValueLength} characters or contain sensitive-looking provider data.",
+                parameterName);
+        }
     }
 
     public static Dictionary<string, string> CopyInboundMetadata(IReadOnlyDictionary<string, string>? metadata)
@@ -146,18 +158,6 @@ internal static class StripeMetadataPolicy
         && IsSafeMetadataKey(key)
         && AllowedInboundMetadataKeys.Contains(key)
         && IsSafeInboundMetadataValue(value);
-
-    private static void ValidateValue(string value, string parameterName)
-    {
-        ArgumentNullException.ThrowIfNull(value, parameterName);
-
-        if (!IsSafeProviderMetadataValue(value))
-        {
-            throw new ArgumentException(
-                $"Stripe metadata values cannot exceed {MaxMetadataValueLength} characters or contain sensitive-looking provider data.",
-                parameterName);
-        }
-    }
 
     private static bool IsSafeMetadataValue(string? value) =>
         value is not null && value.Length <= MaxMetadataValueLength;

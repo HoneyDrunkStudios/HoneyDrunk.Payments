@@ -49,7 +49,9 @@ Checkout session creation enables Stripe Tax with `automatic_tax.enabled=true`.
 Stripe requests are pinned to API version `2026-05-27.dahlia`; changing that pin
 is a deliberate Payments provider upgrade.
 
-Outbound caller metadata is bounded and rejected when keys look sensitive.
+Outbound caller metadata and reserved Payments metadata values
+(`payments_tenant_id`, `project_id`, and `tier_name`) are bounded and rejected
+when values look sensitive.
 Outbound provider-bound identifiers, including Stripe customer ids, price ids,
 idempotency keys, meter identifiers, correlation ids, subscription ids, invoice
 ids, and cancellation comments, reject sensitive-looking values before Stripe

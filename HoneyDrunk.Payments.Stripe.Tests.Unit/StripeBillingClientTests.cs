@@ -554,6 +554,55 @@ public sealed class StripeBillingClientTests
         Assert.Contains("sensitive", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("request.TenantId", "billing@example.com", "project-1", "Starter")]
+    [InlineData("request.ProjectId", "01ARZ3NDEKTSV4RRFFQ69G5FAV", "sk_test_123", "Starter")]
+    [InlineData("request.TierName", "01ARZ3NDEKTSV4RRFFQ69G5FAV", "project-1", "contains-secret-fragment")]
+    public async Task BillingClientRejectsSensitiveReservedCheckoutMetadataValues(
+        string expectedParameterName,
+        string tenantId,
+        string projectId,
+        string tierName)
+    {
+        var client = new StripeBillingClient(new CapturingStripeBillingSdk());
+        var request = new StripeCheckoutSessionRequest(
+            tenantId,
+            projectId,
+            tierName,
+            "price_starter",
+            "https://payments.test/success",
+            "https://payments.test/cancel",
+            "checkout-1",
+            CustomerEmail: "billing@example.com");
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await client.CreateCheckoutSessionAsync(request));
+
+        Assert.Equal(expectedParameterName, exception.ParamName);
+        Assert.Contains("sensitive", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task BillingClientRejectsOversizedReservedCheckoutMetadataValue()
+    {
+        var client = new StripeBillingClient(new CapturingStripeBillingSdk());
+        var request = new StripeCheckoutSessionRequest(
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "project-1",
+            new string('a', StripeMetadataPolicy.MaxMetadataValueLength + 1),
+            "price_starter",
+            "https://payments.test/success",
+            "https://payments.test/cancel",
+            "checkout-1",
+            CustomerEmail: "billing@example.com");
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await client.CreateCheckoutSessionAsync(request));
+
+        Assert.Equal("request.TierName", exception.ParamName);
+        Assert.Contains("cannot exceed", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public async Task BillingSdkPinsExpectedStripeApiVersion()
     {
