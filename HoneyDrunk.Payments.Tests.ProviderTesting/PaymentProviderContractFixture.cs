@@ -2,7 +2,7 @@ using HoneyDrunk.Kernel.Abstractions.Identity;
 using HoneyDrunk.Kernel.Abstractions.Tenancy;
 using HoneyDrunk.Payments.Abstractions;
 
-namespace HoneyDrunk.Payments.ProviderTesting;
+namespace HoneyDrunk.Payments.Tests.ProviderTesting;
 
 /// <summary>
 /// Base fixture for running provider-neutral payment contract tests against a provider implementation.

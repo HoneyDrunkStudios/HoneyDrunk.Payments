@@ -1,4 +1,4 @@
-namespace HoneyDrunk.Payments.ProviderTesting;
+namespace HoneyDrunk.Payments.Tests.ProviderTesting;
 
 /// <summary>
 /// Reusable provider-neutral payment contract tests for provider test projects.
