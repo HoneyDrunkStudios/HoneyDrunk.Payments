@@ -6,6 +6,7 @@ namespace HoneyDrunk.Payments.Stripe;
 /// <summary>
 /// Enqueues Grid billing events for durable Stripe metered billing replay.
 /// </summary>
+/// <param name="buffer">Durable Stripe meter-event buffer used to store billing events before replay.</param>
 public sealed class StripeBillingEventEmitter(IStripeMeterEventBuffer buffer) : KernelBillingEventEmitter
 {
     internal const string BillingEventIdAttributeKey = "billing_event_id";
