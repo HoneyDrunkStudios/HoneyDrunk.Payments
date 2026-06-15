@@ -9,6 +9,8 @@ namespace HoneyDrunk.Payments.Stripe;
 /// </summary>
 internal sealed class StripeBillingSdk : IStripeBillingSdk
 {
+    internal const string StripeApiVersion = "2026-05-27.dahlia";
+
     private readonly IStripeApiKeyProvider apiKeyProvider;
     private readonly MeterEventService meterEvents = new();
     private readonly StripeCheckout.SessionService checkoutSessions = new();
@@ -22,6 +24,7 @@ internal sealed class StripeBillingSdk : IStripeBillingSdk
     public StripeBillingSdk(IStripeApiKeyProvider apiKeyProvider)
     {
         this.apiKeyProvider = apiKeyProvider ?? throw new ArgumentNullException(nameof(apiKeyProvider));
+        EnsurePinnedStripeApiVersion();
     }
 
     /// <inheritdoc />
@@ -81,8 +84,10 @@ internal sealed class StripeBillingSdk : IStripeBillingSdk
             await CreateRequestOptionsAsync(null, cancellationToken).ConfigureAwait(false),
             cancellationToken).ConfigureAwait(false);
 
-    private async ValueTask<RequestOptions> CreateRequestOptionsAsync(string? idempotencyKey, CancellationToken cancellationToken)
+    internal async ValueTask<RequestOptions> CreateRequestOptionsAsync(string? idempotencyKey, CancellationToken cancellationToken)
     {
+        EnsurePinnedStripeApiVersion();
+
         var apiKey = await apiKeyProvider.GetApiKeyAsync(cancellationToken).ConfigureAwait(false);
         ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
 
@@ -91,5 +96,14 @@ internal sealed class StripeBillingSdk : IStripeBillingSdk
             ApiKey = apiKey,
             IdempotencyKey = string.IsNullOrWhiteSpace(idempotencyKey) ? null : idempotencyKey,
         };
+    }
+
+    private static void EnsurePinnedStripeApiVersion()
+    {
+        if (!StringComparer.Ordinal.Equals(StripeConfiguration.ApiVersion, StripeApiVersion))
+        {
+            throw new InvalidOperationException(
+                $"Stripe.NET API version drifted to '{StripeConfiguration.ApiVersion}'. Update '{nameof(StripeApiVersion)}' deliberately before using this provider.");
+        }
     }
 }

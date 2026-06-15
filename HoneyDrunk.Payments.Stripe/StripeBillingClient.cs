@@ -176,6 +176,10 @@ public sealed class StripeBillingClient :
             Mode = "subscription",
             SuccessUrl = request.SuccessUrl,
             CancelUrl = request.CancelUrl,
+            AutomaticTax = new StripeCheckout.SessionAutomaticTaxOptions
+            {
+                Enabled = true,
+            },
             Customer = stripeCustomerId,
             CustomerEmail = stripeCustomerId is null ? request.CustomerEmail : null,
             ClientReferenceId = $"{request.TenantId}:{request.ProjectId}",

@@ -7,10 +7,12 @@
   reconciliation.
 - Preserve original billing-event timestamps when creating Stripe meter events.
 - Enforce checkout idempotency keys before calling Stripe Checkout.
+- Enable Stripe Tax on Checkout subscription sessions.
+- Pin Stripe API requests to Stripe API version `2026-05-27.dahlia`.
 - Require per-event meter idempotency through the `billing_event_id` billing
   attribute instead of trace correlation.
-- Require explicit metered billing transport composition to avoid silent no-op
-  revenue-event drops.
+- Require Kernel billing events to enqueue through `IStripeMeterEventBuffer`,
+  with `StripeMeterEventReplayDispatcher` owning replay to Stripe transport.
 - Resolve Stripe API keys through `IStripeApiKeyProvider` instead of storing raw
   API-key strings in Payments client state.
 - Resolve Stripe webhook endpoint secrets through `IStripeWebhookSecretProvider`

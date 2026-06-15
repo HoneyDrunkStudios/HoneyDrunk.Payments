@@ -17,6 +17,11 @@ Provider packages should keep SDKs and provider-specific secrets behind their
 own composition boundary. For Stripe, hosts provide `IStripeApiKeyProvider`
 and `IStripeWebhookSecretProvider` backed by Vault / `ISecretStore`, then pass
 per-event billing idempotency through the `billing_event_id` billing attribute.
+Kernel `IBillingEventEmitter` composition also requires an
+`IStripeMeterEventBuffer`; product hosts own the durable at-least-once store and
+use `StripeMeterEventReplayDispatcher` to drain accepted events to Stripe.
+Checkout sessions enable Stripe Tax, and Stripe requests are pinned to API
+version `2026-05-27.dahlia`.
 
 Reusable provider contract assertions live in
 `HoneyDrunk.Payments.Tests.ProviderTesting`. Provider `.Tests.Unit` projects

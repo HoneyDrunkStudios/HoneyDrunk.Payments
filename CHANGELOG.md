@@ -6,9 +6,10 @@
   subscription lifecycle, webhook normalization, and invoice reconciliation
   contracts.
 - Stand up `HoneyDrunk.Payments.Stripe` with Stripe.NET-backed meter-event
-  transport, Checkout subscription creation, subscription read/cancel, signed
-  webhook normalization, invoice reconciliation snapshots, and Kernel
-  `IBillingEventEmitter` support.
+  transport, durable-buffered Kernel `IBillingEventEmitter` composition,
+  Checkout subscription creation with Stripe Tax enabled, subscription
+  read/cancel, signed webhook normalization, invoice reconciliation snapshots,
+  and explicit Stripe API version pinning.
 - Add `HoneyDrunk.Payments.Tests.ProviderTesting`, a test-scoped reusable
   provider-neutral assertion harness that Stripe `.Tests.Unit` facts already
   run for checkout, lifecycle, webhook, invoice, and metered-billing behavior.

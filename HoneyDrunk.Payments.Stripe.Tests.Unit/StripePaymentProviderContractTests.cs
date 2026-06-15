@@ -121,7 +121,7 @@ public sealed class StripePaymentProviderContractTests : PaymentProviderContract
         public override IPaymentInvoiceReconciliationClient InvoiceReconciliationClient => client;
 
         public override KernelBillingEventEmitter BillingEventEmitter { get; } =
-            new StripeBillingEventEmitter(new ContractStripeMeteredBillingClient());
+            new StripeBillingEventEmitter(new ContractStripeMeterEventBuffer());
     }
 
     private sealed class FixedStripeWebhookSecretProvider(string webhookSecret) : IStripeWebhookSecretProvider
@@ -133,9 +133,9 @@ public sealed class StripePaymentProviderContractTests : PaymentProviderContract
         }
     }
 
-    private sealed class ContractStripeMeteredBillingClient : IStripeMeteredBillingClient
+    private sealed class ContractStripeMeterEventBuffer : IStripeMeterEventBuffer
     {
-        public ValueTask RecordMeterEventAsync(StripeMeterEvent meterEvent, CancellationToken cancellationToken)
+        public ValueTask EnqueueAsync(StripeMeterEvent meterEvent, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(meterEvent);
             ArgumentException.ThrowIfNullOrWhiteSpace(meterEvent.IdempotencyKey);

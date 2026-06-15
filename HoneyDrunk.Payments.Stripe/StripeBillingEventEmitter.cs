@@ -4,13 +4,13 @@ using KernelBillingEventEmitter = HoneyDrunk.Kernel.Abstractions.Tenancy.IBillin
 namespace HoneyDrunk.Payments.Stripe;
 
 /// <summary>
-/// Emits Grid billing events into Stripe metered billing.
+/// Enqueues Grid billing events for durable Stripe metered billing replay.
 /// </summary>
-public sealed class StripeBillingEventEmitter(IStripeMeteredBillingClient client) : KernelBillingEventEmitter
+public sealed class StripeBillingEventEmitter(IStripeMeterEventBuffer buffer) : KernelBillingEventEmitter
 {
     internal const string BillingEventIdAttributeKey = "billing_event_id";
 
-    private readonly IStripeMeteredBillingClient meteredBillingClient = client ?? throw new ArgumentNullException(nameof(client));
+    private readonly IStripeMeterEventBuffer buffer = buffer ?? throw new ArgumentNullException(nameof(buffer));
 
     /// <inheritdoc />
     public async ValueTask EmitAsync(KernelBillingEvent billingEvent, CancellationToken cancellationToken)
@@ -39,7 +39,7 @@ public sealed class StripeBillingEventEmitter(IStripeMeteredBillingClient client
             billingEvent.CorrelationId,
             billingEvent.Attributes);
 
-        await meteredBillingClient.RecordMeterEventAsync(meterEvent, cancellationToken).ConfigureAwait(false);
+        await buffer.EnqueueAsync(meterEvent, cancellationToken).ConfigureAwait(false);
     }
 
     private static string GetBillingEventId(KernelBillingEvent billingEvent)
