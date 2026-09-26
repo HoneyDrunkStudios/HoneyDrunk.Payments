@@ -9,7 +9,7 @@ namespace HoneyDrunk.Payments.Stripe;
 /// </summary>
 internal sealed class StripeBillingSdk : IStripeBillingSdk
 {
-    internal const string StripeApiVersion = "2026-05-27.dahlia";
+    internal const string StripeApiVersion = "2026-08-26.dahlia";
 
     private readonly IStripeApiKeyProvider apiKeyProvider;
     private readonly MeterEventService meterEvents = new();
