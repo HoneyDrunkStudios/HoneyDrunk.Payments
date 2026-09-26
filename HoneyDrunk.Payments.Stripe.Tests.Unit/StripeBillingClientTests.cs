@@ -903,7 +903,7 @@ public sealed class StripeBillingClientTests
         Assert.Equal("sk_test", options.ApiKey);
         Assert.Equal("idem-1", options.IdempotencyKey);
         Assert.Equal(StripeBillingSdk.StripeApiVersion, StripeConfiguration.ApiVersion);
-        Assert.Equal("2026-05-27.dahlia", StripeBillingSdk.StripeApiVersion);
+        Assert.Equal("2026-08-26.dahlia", StripeBillingSdk.StripeApiVersion);
     }
 
     [Fact]

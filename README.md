@@ -24,7 +24,7 @@ mapping through `provider_customer_id`. Kernel `IBillingEventEmitter`
 composition also requires an `IStripeMeterEventBuffer`; product hosts own the
 durable at-least-once store and use `StripeMeterEventReplayDispatcher` to drain
 accepted events to Stripe. Checkout sessions enable Stripe Tax, and Stripe
-requests are pinned to API version `2026-05-27.dahlia`.
+requests are pinned to API version `2026-08-26.dahlia`.
 
 Reusable provider contract assertions live in the approved test helper project
 `HoneyDrunk.Payments.Tests.Unit`.
