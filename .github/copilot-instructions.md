@@ -1,6 +1,6 @@
 # HoneyDrunk.Payments Copilot Instructions
 
-Follow the HoneyDrunk Architecture instructions and repository context for
+Follow the HoneyDrunk Studio instructions and repository context for
 `HoneyDrunk.Payments` before changing public payment contracts, provider
 packages, workflow wiring, or billing behavior.
 

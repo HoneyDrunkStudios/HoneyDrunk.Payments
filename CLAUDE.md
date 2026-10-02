@@ -4,8 +4,8 @@ HoneyDrunk.Payments is the shared payment-provider boundary for HoneyDrunk
 products. It owns provider-neutral payment contracts and provider-specific
 packages such as `HoneyDrunk.Payments.Stripe`.
 
-Authoritative Architecture context lives in
-`HoneyDrunk.Architecture/repos/HoneyDrunk.Payments/`. Keep this repository
+Authoritative architecture context lives in
+`HoneyDrunk.Studio/repos/HoneyDrunk.Payments/`. Keep this repository
 aligned with that context before changing public contracts, provider package
 boundaries, billing-event behavior, or Stripe composition.
 
