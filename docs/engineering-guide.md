@@ -1,8 +1,6 @@
-# HoneyDrunk.Payments Copilot Instructions
+# HoneyDrunk.Payments engineering guide
 
-Follow the HoneyDrunk Studio instructions and repository context for
-`HoneyDrunk.Payments` before changing public payment contracts, provider
-packages, workflow wiring, or billing behavior.
+Follow [the repository entrypoint](../AGENTS.md), README and current contracts before changing payment contracts, provider packages, workflow wiring or billing behavior.
 
 Key local rules:
 
