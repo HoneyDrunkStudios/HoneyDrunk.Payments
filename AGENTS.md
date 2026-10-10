@@ -26,3 +26,11 @@ Read the [shared engineering conventions](https://github.com/HoneyDrunkStudios/H
 Work within the selected request. Preserve unrelated changes and use a separate worktree when needed. Review the final diff, use Conventional Commits and ready-for-review PRs with exactly one accurate `Authorship:` line and a `Request:` line; include the authorship in commit trailers. Run meaningful checks for the affected behavior and report the reviewed/tested revision, failures and unrun checks. For documentation-only changes, check links, paths and instruction consistency. Preserve required checks and inspect actual latest-head Sonar new-code findings where analysis applies; do not suppress findings or weaken gates to obtain a pass. Legacy Grid Review is retired; do not restore its workers, queues or bypass labels. A configured replacement reviewer is not evidence of a completed review or enforcing merge check.
 
 Read the [engineering guide](docs/engineering-guide.md) for repository-specific contracts and patterns.
+
+## Code Review Rules
+
+Apply the [shared review criteria](https://github.com/HoneyDrunkStudios/HoneyDrunk.Standards/blob/main/HoneyDrunk.Standards/docs/CONVENTIONS.md#code-review) to changed behavior, using the repository boundaries above. Report actionable findings with the failing path, concrete impact and a small corrective action; disclose unavailable evidence. These rules grant no cross-repository access or merge authority.
+
+- Keep provider-neutral contracts in Abstractions, SDK/secret/webhook handling in provider packages and product billing policy in consumers. Reuse existing payment/provider seams and preserve public compatibility.
+- Trace signature validation, tenant/account binding, amount/currency precision, idempotency and duplicate/out-of-order events. Flag forged callbacks, double charging or success before the relevant provider/persistence outcome; bound retries and propagate cancellation.
+- Require focused provider/contract and replay/failure tests for changed behavior. Verify the real provider boundary without performing paid transactions; product-specific subscription or entitlement decisions do not belong in generic payment plumbing.
