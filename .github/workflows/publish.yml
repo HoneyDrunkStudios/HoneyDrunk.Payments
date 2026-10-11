@@ -6,15 +6,24 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
+      verify-trust-only:
+        description: 'Verify NuGet trust without building or publishing a release'
+        type: boolean
+        default: false
       version:
         description: 'Version to publish (without v prefix, e.g., 0.1.0)'
         required: true
         type: string
 
+concurrency:
+  group: nuget-${{ github.workflow }}
+  cancel-in-progress: false
+
 permissions: {}
 
 jobs:
   prepare:
+    if: github.event_name != 'workflow_dispatch' || !inputs.verify-trust-only
     name: Prepare Release
     runs-on: ubuntu-latest
     permissions: {}
@@ -53,6 +62,7 @@ jobs:
           echo "Publishing tag: $VERSION_TAG"
 
   release:
+    if: github.event_name != 'workflow_dispatch' || !inputs.verify-trust-only
     name: Build, Pack & Publish
     needs: prepare
     permissions:
@@ -60,16 +70,17 @@ jobs:
       packages: write
       id-token: write
       security-events: write
-    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/release.yml@main
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/release.yml@0e0a8ab09b10375945b5eb474dd3f276af2e41ed
     with:
       dotnet-version: '10.0.x'
       configuration: 'Release'
       runs-on: 'ubuntu-latest'
       project-path: 'HoneyDrunk.Payments.slnx'
-      enable-nuget-publish: true
+      enable-nuget-pack: true
+      enable-nuget-publish: false
       nuget-source: 'https://api.nuget.org/v3/index.json'
       package-version: ${{ needs.prepare.outputs.version }}
-      create-github-release: true
+      create-github-release: false
       github-release-tag: ${{ needs.prepare.outputs.version_tag }}
       release-product-name: HoneyDrunk.Payments
       release-product-description: 'Provider-neutral payment contracts and Stripe integration for HoneyDrunk products.'
@@ -77,7 +88,91 @@ jobs:
         HoneyDrunk.Payments.Abstractions
         HoneyDrunk.Payments.Stripe
       release-docs-url: 'https://github.com/HoneyDrunkStudios/HoneyDrunk.Payments#readme'
-      actions-ref: 'main'
+      actions-ref: '0e0a8ab09b10375945b5eb474dd3f276af2e41ed'
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}
-      nuget-api-key: ${{ secrets.NUGET_API_KEY }}
+
+  trusted-publish:
+    name: Trusted NuGet publication
+    needs:
+    - release
+    - prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: nuget
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+    - name: Checkout reviewed publishing actions
+      uses: actions/checkout@v5
+      with:
+        repository: HoneyDrunkStudios/HoneyDrunk.Actions
+        ref: 0e0a8ab09b10375945b5eb474dd3f276af2e41ed
+        path: .github/actions-repo
+        persist-credentials: false
+    - uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: 10.0.x
+    - uses: actions/download-artifact@v6
+      with:
+        name: nuget-packages
+        path: artifacts
+    - name: Publish through NuGet trusted identity
+      uses: ./.github/actions-repo/.github/actions/nuget/trusted-publish
+      with:
+        user: tatteddev
+        expected-version: ${{ needs.prepare.outputs.version }}
+        expected-packages: |-
+          HoneyDrunk.Payments.Abstractions
+          HoneyDrunk.Payments.Stripe
+    - name: Generate release notes
+      id: notes
+      uses: ./.github/actions-repo/.github/actions/release/generate-notes
+      with:
+        version: ${{ needs.prepare.outputs.version }}
+        product-name: HoneyDrunk.Payments
+        product-description: Provider-neutral payment contracts and Stripe integration for HoneyDrunk products.
+        nuget-packages: |
+          HoneyDrunk.Payments.Abstractions
+          HoneyDrunk.Payments.Stripe
+        docs-url: https://github.com/HoneyDrunkStudios/HoneyDrunk.Payments#readme
+    - name: Create GitHub Release after successful publication
+      uses: softprops/action-gh-release@v3
+      with:
+        tag_name: ${{ needs.prepare.outputs.version_tag }}
+        name: HoneyDrunk.Payments ${{ needs.prepare.outputs.version_tag }}
+        body: ${{ steps.notes.outputs.body }}
+        generate_release_notes: ${{ steps.notes.outputs.has-changelog == 'false' }}
+        draft: false
+        prerelease: false
+  verify-nuget-trust:
+    name: Verify NuGet trust without publishing
+    if: github.event_name == 'workflow_dispatch' && inputs.verify-trust-only
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: nuget
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+    - name: Checkout reviewed publishing actions
+      uses: actions/checkout@v5
+      with:
+        repository: HoneyDrunkStudios/HoneyDrunk.Actions
+        ref: 0e0a8ab09b10375945b5eb474dd3f276af2e41ed
+        path: .github/actions-repo
+        persist-credentials: false
+    - name: Verify trust only
+      uses: ./.github/actions-repo/.github/actions/nuget/trusted-publish
+      with:
+        user: tatteddev
+        verify-only: 'true'
