@@ -7,21 +7,13 @@ namespace HoneyDrunk.Payments.Tests.Unit;
 /// <summary>
 /// Base fixture for running provider-neutral payment contract tests against a provider implementation.
 /// </summary>
-public abstract class PaymentProviderContractFixture
+/// <param name="expectations">Expected provider values used by the contract test assertions.</param>
+public abstract class PaymentProviderContractFixture(PaymentProviderContractExpectations expectations)
 {
-    /// <summary>
-    /// Initializes a new instance of the <see cref="PaymentProviderContractFixture"/> class.
-    /// </summary>
-    /// <param name="expectations">Expected provider values used by the contract test assertions.</param>
-    protected PaymentProviderContractFixture(PaymentProviderContractExpectations expectations)
-    {
-        Expectations = expectations ?? throw new ArgumentNullException(nameof(expectations));
-    }
-
     /// <summary>
     /// Gets the expected provider values used by the contract test assertions.
     /// </summary>
-    public PaymentProviderContractExpectations Expectations { get; }
+    public PaymentProviderContractExpectations Expectations { get; } = expectations ?? throw new ArgumentNullException(nameof(expectations));
 
     /// <summary>
     /// Gets the normalized provider name expected on provider-neutral snapshots.

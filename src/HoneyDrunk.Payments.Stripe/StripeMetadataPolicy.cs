@@ -75,7 +75,10 @@ internal static class StripeMetadataPolicy
 
     public static void ValidateProviderReferenceValue(string value, string parameterName)
     {
-        ArgumentNullException.ThrowIfNull(value, parameterName);
+        if (value is null)
+        {
+            throw new ArgumentNullException(parameterName);
+        }
 
         if (!IsSafeProviderMetadataValue(value))
         {
@@ -97,7 +100,10 @@ internal static class StripeMetadataPolicy
 
     public static void ValidateOutboundMetadataValue(string value, string parameterName)
     {
-        ArgumentNullException.ThrowIfNull(value, parameterName);
+        if (value is null)
+        {
+            throw new ArgumentNullException(parameterName);
+        }
 
         if (!IsSafeOutboundMetadataValue(value))
         {
@@ -133,7 +139,15 @@ internal static class StripeMetadataPolicy
 
     private static void ValidateKey(string key, string parameterName)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(key, parameterName);
+        if (key is null)
+        {
+            throw new ArgumentNullException(parameterName);
+        }
+
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            throw new ArgumentException("The value cannot be empty or whitespace.", parameterName);
+        }
 
         if (key.Length > MaxMetadataKeyLength)
         {

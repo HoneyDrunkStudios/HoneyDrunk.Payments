@@ -452,6 +452,6 @@ public sealed class StripeBillingClient :
         return merged;
     }
 
-    private static string? TryGetMetadata(IReadOnlyDictionary<string, string> metadata, string key) =>
+    private static string? TryGetMetadata(Dictionary<string, string> metadata, string key) =>
         metadata.TryGetValue(key, out var value) ? value : null;
 }

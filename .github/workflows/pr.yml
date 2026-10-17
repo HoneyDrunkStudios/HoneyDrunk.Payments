@@ -23,7 +23,7 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Test Abstractions contract shape
-        run: dotnet test ./HoneyDrunk.Payments.Abstractions.Tests.Unit/HoneyDrunk.Payments.Abstractions.Tests.Unit.csproj -c Release
+        run: dotnet test ./tests/HoneyDrunk.Payments.Abstractions.Tests.Unit/HoneyDrunk.Payments.Abstractions.Tests.Unit.csproj -c Release
 
   pr-core:
     name: PR Core
