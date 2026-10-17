@@ -39,11 +39,20 @@ public sealed class StripeWebhookEventValidator :
         CancellationToken cancellationToken) =>
         ToPaymentWebhookEventSnapshot(await ValidateWebhookEventAsync(payload, signatureHeader, cancellationToken).ConfigureAwait(false));
 
+    /// <summary>
+    /// Validates a signed webhook event without a cancellation token.
+    /// </summary>
+    /// <param name="payload">The unmodified webhook payload.</param>
+    /// <param name="signatureHeader">The Stripe signature header.</param>
+    /// <returns>The validated webhook snapshot.</returns>
+    public ValueTask<StripeWebhookEventSnapshot> ValidateWebhookEventAsync(string payload, string signatureHeader) =>
+        ValidateWebhookEventAsync(payload, signatureHeader, CancellationToken.None);
+
     /// <inheritdoc />
     public async ValueTask<StripeWebhookEventSnapshot> ValidateWebhookEventAsync(
         string payload,
         string signatureHeader,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(payload);
         ArgumentException.ThrowIfNullOrWhiteSpace(signatureHeader);

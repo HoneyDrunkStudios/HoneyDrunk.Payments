@@ -16,7 +16,15 @@ internal static class StripeMeterEventNamePolicy
 
     internal static void ValidateEventName(string eventName, string parameterName)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(eventName, parameterName);
+        if (eventName is null)
+        {
+            throw new ArgumentNullException(parameterName);
+        }
+
+        if (string.IsNullOrWhiteSpace(eventName))
+        {
+            throw new ArgumentException("The value cannot be empty or whitespace.", parameterName);
+        }
 
         if (!IsValidEventName(eventName))
         {

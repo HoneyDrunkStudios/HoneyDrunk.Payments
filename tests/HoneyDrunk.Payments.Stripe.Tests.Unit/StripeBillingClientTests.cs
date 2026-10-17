@@ -1578,7 +1578,10 @@ public sealed class StripeBillingClientTests
             "corr-1",
             new Dictionary<string, string>(StringComparer.Ordinal));
 
-        await client.RecordMeterEventAsync(meterEvent, CancellationToken.None);
+        var exception = await Record.ExceptionAsync(async () =>
+            await client.RecordMeterEventAsync(meterEvent, CancellationToken.None));
+
+        Assert.Null(exception);
     }
 
     [Fact]

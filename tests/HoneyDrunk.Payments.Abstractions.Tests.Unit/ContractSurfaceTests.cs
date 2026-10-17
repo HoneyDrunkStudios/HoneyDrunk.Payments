@@ -207,7 +207,7 @@ public sealed class ContractSurfaceTests
 
     private static void AssertRecordShape(Type recordType, (string name, Type type)[] expectedProperties)
     {
-        AssertPrimaryConstructor(recordType, expectedProperties.Select(property => property.type).ToArray());
+        AssertPrimaryConstructor(recordType, [.. expectedProperties.Select(property => property.type)]);
 
         foreach (var (propertyName, expectedType) in expectedProperties)
         {
