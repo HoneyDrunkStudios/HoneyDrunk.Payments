@@ -1,5 +1,10 @@
 # HoneyDrunk.Payments
 
+## Repository layout
+
+Open `HoneyDrunk.Payments.slnx` from the repository root. Production projects live in `src/`, test and canary projects in `tests/`, and examples in `samples/` where present. Shared build configuration stays at the root; project names, namespaces and package identities are unchanged. Existing documentation and release-history locations are retained.
+
+
 Payments owns the Grid payment-provider boundary. The initial package is
 `HoneyDrunk.Payments.Stripe`, which contains the Stripe.NET adapter for metered
 usage, subscription lifecycle, signed webhook normalization, and invoice

@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\HoneyDrunk.Payments.Abstractions\HoneyDrunk.Payments.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\HoneyDrunk.Payments.Abstractions\HoneyDrunk.Payments.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>
