@@ -56,7 +56,7 @@ as a dead-letter/reconciliation signal rather than retrying the same event
 unchanged.
 
 Checkout session creation enables Stripe Tax with `automatic_tax.enabled=true`.
-Stripe requests are pinned to API version `2026-08-26.dahlia`; changing that pin
+Stripe requests are pinned to API version `2026-10-28.endive`; changing that pin
 is a deliberate Payments provider upgrade.
 
 Outbound caller metadata and reserved Payments metadata values
@@ -82,6 +82,6 @@ Hosts should log meter-emission failures at the product boundary with tenant,
 project, event type, operation key, billing event id, and correlation id. Do not
 log Stripe API keys, webhook secrets, raw signatures, or full webhook payloads.
 
-The September 2026 dependency refresh uses Stripe.NET 52.4.2. Stripe documents the June, July, and August Dahlia releases as additive changes within the same major API family. The SDK pin guard remains enabled. Existing webhook signature/normalization tests and billing tests must pass before release. This library update does not change Stripe account defaults or deployed webhook endpoint settings. Validate host endpoint configuration against `2026-08-26.dahlia` before deployment.
+The November 2026 dependency refresh uses Stripe.NET 53.1.0 and its fixed API version `2026-10-28.endive`. This crosses an API family boundary. The SDK pin guard remains enabled; signed webhook normalization covers both the prior Dahlia version and Endive. Hosts must review their endpoint configuration and any provider-specific response fields against Endive before deploying. This library release does not change Stripe account defaults or deployed webhook endpoint settings.
 
-References: [Stripe API versioning](https://docs.stripe.com/api/versioning), [Dahlia changelog](https://docs.stripe.com/changelog/dahlia).
+References: [Stripe API versioning](https://docs.stripe.com/api/versioning), [Stripe.NET 53.1.0 changelog](https://github.com/stripe/stripe-dotnet/blob/v53.1.0/CHANGELOG.md).

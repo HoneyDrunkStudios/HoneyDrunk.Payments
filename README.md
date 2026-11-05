@@ -29,7 +29,7 @@ mapping through `provider_customer_id`. Kernel `IBillingEventEmitter`
 composition also requires an `IStripeMeterEventBuffer`; product hosts own the
 durable at-least-once store and use `StripeMeterEventReplayDispatcher` to drain
 accepted events to Stripe. Checkout sessions enable Stripe Tax, and Stripe
-requests are pinned to API version `2026-08-26.dahlia`.
+requests are pinned to API version `2026-10-28.endive`.
 
 Reusable provider contract assertions live in the approved test helper project
 `HoneyDrunk.Payments.Tests.Unit`.
@@ -45,10 +45,8 @@ tenant ids. Product hosts persist the provider customer id returned by checkout,
 subscription reads, or invoice reconciliation, then pass that provider mapping
 to the selected Payments provider at the composition boundary.
 
-Payments pins `HoneyDrunk.Kernel.Abstractions` to `0.7.0`, the current
-Architecture baseline used by Grid Review. The billing contracts consumed here
-(`BillingEvent`, `IBillingEventEmitter`, and `TenantId`) are present in that
-baseline.
+Payments uses `HoneyDrunk.Kernel.Abstractions` `0.8.2` for the billing contracts
+`BillingEvent`, `IBillingEventEmitter`, and `TenantId`.
 Issue
 [HoneyDrunk.Payments#3](https://github.com/HoneyDrunkStudios/HoneyDrunk.Payments/issues/3)
 tracks expanding the suite when a second provider exposes provider-specific
