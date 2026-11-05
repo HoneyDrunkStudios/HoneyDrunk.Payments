@@ -903,7 +903,7 @@ public sealed class StripeBillingClientTests
         Assert.Equal("sk_test", options.ApiKey);
         Assert.Equal("idem-1", options.IdempotencyKey);
         Assert.Equal(StripeBillingSdk.StripeApiVersion, StripeConfiguration.ApiVersion);
-        Assert.Equal("2026-08-26.dahlia", StripeBillingSdk.StripeApiVersion);
+        Assert.Equal("2026-10-28.endive", StripeBillingSdk.StripeApiVersion);
     }
 
     [Fact]
@@ -1331,14 +1331,17 @@ public sealed class StripeBillingClientTests
         Assert.Equal("subscription", snapshot.ObjectType);
     }
 
-    [Fact]
-    public async Task StripeWebhookEventValidatorAcceptsRealStripeSignedWebhookPayload()
+    [Theory]
+    [InlineData("2026-08-26.dahlia")]
+    [InlineData("2026-10-28.endive")]
+    public async Task StripeWebhookEventValidatorAcceptsRealStripeSignedWebhookPayload(string apiVersion)
     {
         const string WebhookSecret = "whsec_test_secret";
-        const string Payload = """
+        var payload = $$"""
             {
               "id": "evt_signed",
               "object": "event",
+              "api_version": "{{apiVersion}}",
               "created": 1710000000,
               "livemode": false,
               "type": "customer.subscription.updated",
@@ -1356,8 +1359,8 @@ public sealed class StripeBillingClientTests
         var client = new StripeWebhookEventValidator(new FixedStripeWebhookSecretProvider(WebhookSecret));
 
         var snapshot = await client.ValidateWebhookEventAsync(
-            Payload,
-            CreateStripeSignatureHeader(Payload, WebhookSecret),
+            payload,
+            CreateStripeSignatureHeader(payload, WebhookSecret),
             CancellationToken.None);
 
         Assert.Equal("evt_signed", snapshot.EventId);
