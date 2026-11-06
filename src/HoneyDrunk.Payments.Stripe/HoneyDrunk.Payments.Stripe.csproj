@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="HoneyDrunk.Standards" Version="0.4.3" PrivateAssets="all" />
+    <PackageReference Include="HoneyDrunk.Standards" Version="0.4.4" PrivateAssets="all" />
     <PackageReference Include="HoneyDrunk.Kernel.Abstractions" Version="0.8.2" />
     <PackageReference Include="Stripe.net" Version="53.1.0" />
   </ItemGroup>
