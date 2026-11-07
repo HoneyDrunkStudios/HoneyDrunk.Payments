@@ -13,7 +13,7 @@ internal sealed class StripeBillingSdk : IStripeBillingSdk
 
     private readonly IStripeApiKeyProvider apiKeyProvider;
     private readonly MeterEventService meterEvents = new();
-    private readonly StripeCheckout.SessionService checkoutSessions = new();
+    private readonly StripeCheckout.SessionService checkoutSessions;
     private readonly SubscriptionService subscriptions = new();
     private readonly InvoiceService invoices = new();
 
@@ -21,9 +21,11 @@ internal sealed class StripeBillingSdk : IStripeBillingSdk
     /// Initializes a new instance of the <see cref="StripeBillingSdk"/> class.
     /// </summary>
     /// <param name="apiKeyProvider">Stripe API key provider.</param>
-    public StripeBillingSdk(IStripeApiKeyProvider apiKeyProvider)
+    /// <param name="checkoutSessions">Optional Stripe Checkout service for transport verification.</param>
+    public StripeBillingSdk(IStripeApiKeyProvider apiKeyProvider, StripeCheckout.SessionService? checkoutSessions = null)
     {
         this.apiKeyProvider = apiKeyProvider ?? throw new ArgumentNullException(nameof(apiKeyProvider));
+        this.checkoutSessions = checkoutSessions ?? new();
         EnsurePinnedStripeApiVersion();
     }
 
