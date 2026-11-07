@@ -31,6 +31,7 @@ public sealed class StripeBillingClient :
 
     private readonly IStripeBillingSdk sdk;
     private readonly TimeProvider timeProvider;
+    private readonly bool disableAutomaticTaxInSandbox;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="StripeBillingClient"/> class.
@@ -41,12 +42,22 @@ public sealed class StripeBillingClient :
     {
     }
 
+    /// <summary>Initializes a new instance of the <see cref="StripeBillingClient"/> class with a sandbox Checkout tax option.</summary>
+    /// <param name="apiKeyProvider">Stripe API key provider.</param>
+    /// <param name="disableAutomaticTaxInSandbox">Disable automatic tax for Checkout using a Stripe test key only.</param>
+    public StripeBillingClient(IStripeApiKeyProvider apiKeyProvider, bool disableAutomaticTaxInSandbox)
+        : this(new StripeBillingSdk(apiKeyProvider), disableAutomaticTaxInSandbox: disableAutomaticTaxInSandbox)
+    {
+    }
+
     internal StripeBillingClient(
         IStripeBillingSdk sdk,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        bool disableAutomaticTaxInSandbox = false)
     {
         this.sdk = sdk ?? throw new ArgumentNullException(nameof(sdk));
         this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.disableAutomaticTaxInSandbox = disableAutomaticTaxInSandbox;
     }
 
     /// <inheritdoc />
@@ -177,7 +188,7 @@ public sealed class StripeBillingClient :
             CancelUrl = request.CancelUrl,
             AutomaticTax = new StripeCheckout.SessionAutomaticTaxOptions
             {
-                Enabled = true,
+                Enabled = !disableAutomaticTaxInSandbox,
             },
             Customer = stripeCustomerId,
             CustomerEmail = stripeCustomerId is null ? request.CustomerEmail : null,

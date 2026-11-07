@@ -618,8 +618,10 @@ public sealed class StripeBillingClientTests
         Assert.Null(sdk.LastMeterEventOptions);
     }
 
-    [Fact]
-    public async Task BillingClientCreatesCheckoutSessionWithPaymentsMetadata()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task BillingClientCreatesCheckoutSessionWithPaymentsMetadata(bool disableAutomaticTaxInSandbox)
     {
         var sdk = new CapturingStripeBillingSdk
         {
@@ -631,7 +633,9 @@ public sealed class StripeBillingClientTests
                 SubscriptionId = "sub_test",
             },
         };
-        var client = new StripeBillingClient(sdk);
+        var client = disableAutomaticTaxInSandbox
+            ? new StripeBillingClient(sdk, disableAutomaticTaxInSandbox: true)
+            : new StripeBillingClient(sdk);
         var request = new StripeCheckoutSessionRequest(
             "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "project-1",
@@ -655,7 +659,7 @@ public sealed class StripeBillingClientTests
         Assert.NotNull(sdk.LastCheckoutSessionOptions);
         Assert.Equal("subscription", sdk.LastCheckoutSessionOptions.Mode);
         Assert.NotNull(sdk.LastCheckoutSessionOptions.AutomaticTax);
-        Assert.True(sdk.LastCheckoutSessionOptions.AutomaticTax.Enabled);
+        Assert.Equal(!disableAutomaticTaxInSandbox, sdk.LastCheckoutSessionOptions.AutomaticTax.Enabled);
         Assert.Equal("billing@example.com", sdk.LastCheckoutSessionOptions.CustomerEmail);
         Assert.Equal("price_starter", Assert.Single(sdk.LastCheckoutSessionOptions.LineItems).Price);
         Assert.Equal("checkout-1", sdk.LastIdempotencyKey);
@@ -904,6 +908,49 @@ public sealed class StripeBillingClientTests
         Assert.Equal("idem-1", options.IdempotencyKey);
         Assert.Equal(StripeBillingSdk.StripeApiVersion, StripeConfiguration.ApiVersion);
         Assert.Equal("2026-10-28.endive", StripeBillingSdk.StripeApiVersion);
+    }
+
+    [Theory]
+    [InlineData("sk_live_fixture")]
+    [InlineData("rk_live_fixture")]
+    [InlineData("unrecognized_fixture")]
+    public async Task BillingClientRejectsTaxOffBeforeAnyNonSandboxCheckoutRequest(string apiKey)
+    {
+        var client = new StripeBillingClient(new FixedStripeApiKeyProvider(apiKey), disableAutomaticTaxInSandbox: true);
+        var request = new StripeCheckoutSessionRequest(
+            "tenant-fixture",
+            "project-fixture",
+            "Plus",
+            "price_fixture",
+            "https://payments.test/success",
+            "https://payments.test/cancel",
+            "idem-sandbox-guard",
+            CustomerEmail: "billing@example.com");
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await client.CreateCheckoutSessionAsync(request));
+        Assert.Contains("requires a Stripe sandbox key", error.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("rk_test_fixture", false)]
+    [InlineData("sk_test_fixture", false)]
+    [InlineData("rk_live_fixture", true)]
+    public async Task BillingSdkSendsTheExpectedTaxSettingAndCredential(string apiKey, bool automaticTax)
+    {
+        using var transport = new CheckoutTransport(apiKey, automaticTax);
+        using var http = new HttpClient(transport, disposeHandler: false);
+        var stripe = new StripeClient(apiKey: "sk_test_transport_default", httpClient: new SystemNetHttpClient(http));
+        var sdk = new StripeBillingSdk(new FixedStripeApiKeyProvider(apiKey), new StripeCheckout.SessionService(stripe));
+        var options = new StripeCheckout.SessionCreateOptions
+        {
+            Mode = "subscription",
+            AutomaticTax = new StripeCheckout.SessionAutomaticTaxOptions { Enabled = automaticTax },
+        };
+
+        var session = await sdk.CreateCheckoutSessionAsync(options, "idem-transport", CancellationToken.None);
+
+        Assert.Equal("cs_fixture", session.Id);
     }
 
     [Fact]
@@ -1634,6 +1681,25 @@ public sealed class StripeBillingClientTests
         {
             LastEvent = meterEvent;
             return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class CheckoutTransport(string apiKey, bool automaticTax) : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Assert.Equal(HttpMethod.Post, request.Method);
+            Assert.Equal("/v1/checkout/sessions", request.RequestUri!.AbsolutePath);
+            Assert.Equal("Bearer", request.Headers.Authorization!.Scheme);
+            Assert.Equal(apiKey, request.Headers.Authorization.Parameter);
+            Assert.Equal("idem-transport", Assert.Single(request.Headers.GetValues("Idempotency-Key")));
+            var form = Uri.UnescapeDataString(await request.Content!.ReadAsStringAsync(cancellationToken));
+            Assert.Contains($"automatic_tax[enabled]={automaticTax.ToString().ToLowerInvariant()}", form, StringComparison.Ordinal);
+
+            return new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"id":"cs_fixture","object":"checkout.session"}"""),
+            };
         }
     }
 
