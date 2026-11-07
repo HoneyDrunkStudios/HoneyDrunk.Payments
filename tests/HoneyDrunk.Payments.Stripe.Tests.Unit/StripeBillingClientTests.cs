@@ -618,8 +618,10 @@ public sealed class StripeBillingClientTests
         Assert.Null(sdk.LastMeterEventOptions);
     }
 
-    [Fact]
-    public async Task BillingClientCreatesCheckoutSessionWithPaymentsMetadata()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task BillingClientCreatesCheckoutSessionWithPaymentsMetadata(bool disableAutomaticTaxInSandbox)
     {
         var sdk = new CapturingStripeBillingSdk
         {
@@ -631,7 +633,9 @@ public sealed class StripeBillingClientTests
                 SubscriptionId = "sub_test",
             },
         };
-        var client = new StripeBillingClient(sdk);
+        var client = disableAutomaticTaxInSandbox
+            ? new StripeBillingClient(sdk, disableAutomaticTaxInSandbox: true)
+            : new StripeBillingClient(sdk);
         var request = new StripeCheckoutSessionRequest(
             "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "project-1",
@@ -655,7 +659,7 @@ public sealed class StripeBillingClientTests
         Assert.NotNull(sdk.LastCheckoutSessionOptions);
         Assert.Equal("subscription", sdk.LastCheckoutSessionOptions.Mode);
         Assert.NotNull(sdk.LastCheckoutSessionOptions.AutomaticTax);
-        Assert.True(sdk.LastCheckoutSessionOptions.AutomaticTax.Enabled);
+        Assert.Equal(!disableAutomaticTaxInSandbox, sdk.LastCheckoutSessionOptions.AutomaticTax.Enabled);
         Assert.Equal("billing@example.com", sdk.LastCheckoutSessionOptions.CustomerEmail);
         Assert.Equal("price_starter", Assert.Single(sdk.LastCheckoutSessionOptions.LineItems).Price);
         Assert.Equal("checkout-1", sdk.LastIdempotencyKey);
@@ -904,6 +908,23 @@ public sealed class StripeBillingClientTests
         Assert.Equal("idem-1", options.IdempotencyKey);
         Assert.Equal(StripeBillingSdk.StripeApiVersion, StripeConfiguration.ApiVersion);
         Assert.Equal("2026-10-28.endive", StripeBillingSdk.StripeApiVersion);
+    }
+
+    [Theory]
+    [InlineData("sk_live_fixture")]
+    [InlineData("rk_live_fixture")]
+    [InlineData("unrecognized_fixture")]
+    public async Task BillingSdkRejectsTaxOffBeforeAnyNonSandboxCheckoutRequest(string apiKey)
+    {
+        var sdk = new StripeBillingSdk(new FixedStripeApiKeyProvider(apiKey));
+        var options = new StripeCheckout.SessionCreateOptions
+        {
+            AutomaticTax = new StripeCheckout.SessionAutomaticTaxOptions { Enabled = false },
+        };
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            sdk.CreateCheckoutSessionAsync(options, "idem-sandbox-guard", CancellationToken.None));
+        Assert.Contains("requires a Stripe sandbox key", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

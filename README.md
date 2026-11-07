@@ -28,8 +28,12 @@ the `billing_event_id` billing attribute and the persisted provider customer
 mapping through `provider_customer_id`. Kernel `IBillingEventEmitter`
 composition also requires an `IStripeMeterEventBuffer`; product hosts own the
 durable at-least-once store and use `StripeMeterEventReplayDispatcher` to drain
-accepted events to Stripe. Checkout sessions enable Stripe Tax, and Stripe
-requests are pinned to API version `2026-10-28.endive`.
+accepted events to Stripe. Checkout sessions enable Stripe Tax by default.
+For payment tests in a sandbox with no tax origin, compose
+`StripeBillingClient(apiKeyProvider, disableAutomaticTaxInSandbox: true)`.
+The adapter rejects that option before making any Checkout request with a
+live or unrecognized key. Stripe requests are pinned to API version
+`2026-10-28.endive`.
 
 Reusable provider contract assertions live in the approved test helper project
 `HoneyDrunk.Payments.Tests.Unit`.

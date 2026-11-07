@@ -41,11 +41,18 @@ internal sealed class StripeBillingSdk : IStripeBillingSdk
     public async Task<StripeCheckout.Session> CreateCheckoutSessionAsync(
         StripeCheckout.SessionCreateOptions options,
         string? idempotencyKey,
-        CancellationToken cancellationToken) =>
-        await checkoutSessions.CreateAsync(
-            options,
-            await CreateRequestOptionsAsync(idempotencyKey, cancellationToken).ConfigureAwait(false),
-            cancellationToken).ConfigureAwait(false);
+        CancellationToken cancellationToken)
+    {
+        var request = await CreateRequestOptionsAsync(idempotencyKey, cancellationToken).ConfigureAwait(false);
+        if (options.AutomaticTax?.Enabled == false
+            && !(request.ApiKey.StartsWith("sk_test_", StringComparison.Ordinal)
+                || request.ApiKey.StartsWith("rk_test_", StringComparison.Ordinal)))
+        {
+            throw new InvalidOperationException("Disabling Checkout automatic tax requires a Stripe sandbox key.");
+        }
+
+        return await checkoutSessions.CreateAsync(options, request, cancellationToken).ConfigureAwait(false);
+    }
 
     /// <inheritdoc />
     public async Task<Subscription> GetSubscriptionAsync(string subscriptionId, CancellationToken cancellationToken) =>

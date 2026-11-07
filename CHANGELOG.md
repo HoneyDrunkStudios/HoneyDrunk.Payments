@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.3] - 2026-11-07
+
+### Added
+
+- Let Stripe sandbox Checkout opt out of automatic tax when the sandbox has no tax origin. The existing constructor keeps automatic tax enabled. The adapter rejects the opt-out with a live or unrecognized API key before sending a Checkout request.
+
 ## [0.1.2] - 2026-11-05
 
 ### Changed
