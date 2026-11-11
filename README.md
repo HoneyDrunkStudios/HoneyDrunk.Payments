@@ -63,3 +63,7 @@ dotnet restore .\HoneyDrunk.Payments.slnx
 dotnet build .\HoneyDrunk.Payments.slnx -c Release --no-restore
 dotnet test .\HoneyDrunk.Payments.slnx -c Release --no-build
 ```
+
+## .NET SDK
+
+Build with the .NET 11 SDK pinned in `global.json` (11.0.100, stable patch roll-forward). Runtime and test projects target `net11.0`; Abstractions retain `net10.0` alongside `net11.0` and public contract shapes are unchanged.
